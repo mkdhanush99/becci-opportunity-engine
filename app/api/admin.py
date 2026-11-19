@@ -1,15 +1,16 @@
-"""Admin API: Human review workflow, source management, scan orchestration, and monitoring."""
+"""Admin API: Human review workflow, tender intelligence management, scan orchestration, and monitoring."""
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.enums import AdminRole, LifecycleStatus
-from app.models import AdminUser, Opportunity, ScanRun, Source, VerificationRecord
-from app.orchestrator.service import Orchestrator
+from app.models import AdminUser, Opportunity, ScanRun, Source, TenderDetail, VerificationRecord
+from app.orchestrator.service import Orchestrator, SourceLockedError
 from app.pipeline.lifecycle import transition_lifecycle
 from app.schemas import (
     AdminLoginRequest,
@@ -71,8 +72,11 @@ def get_opportunity_detail(
     if not opp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
 
-    # Fetch verification records
-    v_stmt = select(VerificationRecord).where(VerificationRecord.opportunity_id == opp.id).order_by(VerificationRecord.created_at.desc())
+    v_stmt = (
+        select(VerificationRecord)
+        .where(VerificationRecord.opportunity_id == opp.id)
+        .order_by(VerificationRecord.created_at.desc())
+    )
     v_records = session.scalars(v_stmt).all()
 
     detail = AdminOpportunityDetailOut.model_validate(opp)
@@ -91,7 +95,6 @@ def review_opportunity(
     if not opp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
 
-    # Apply presentation field edits if provided
     if req.title is not None:
         opp.title = req.title.strip()
     if req.description is not None:
@@ -117,7 +120,78 @@ def review_opportunity(
     return PublicOpportunityOut.model_validate(opp)
 
 
-# --------------------------------------------------------------------------- Scan Orchestration
+# --------------------------------------------------------------------------- Admin Tender Intelligence Endpoints
+@router.get("/tenders", response_model=list[PublicOpportunityOut], summary="List all discovered tenders with procurement filters")
+def list_admin_tenders(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    state: str | None = Query(None, description="Filter by state (Telangana, Maharashtra, National, etc.)"),
+    sector: str | None = Query(None, description="Filter by BECCI sector"),
+    tender_status: str | None = Query(None, description="Filter by tender status (open, closing_soon, extended, cancelled, expired)"),
+    lifecycle_status: str | None = Query(None, description="Filter by lifecycle status"),
+    deadline_before: dt.date | None = Query(None),
+    deadline_after: dt.date | None = Query(None),
+    q: str | None = Query(None, description="Search by department, ministry, title, or tender reference"),
+    limit: int = Query(50, ge=1, le=200),
+    session: Session = Depends(get_db),
+):
+    stmt = (
+        select(Opportunity)
+        .outerjoin(TenderDetail, Opportunity.id == TenderDetail.opportunity_id)
+        .where(Opportunity.category == "tender")
+    )
+    if state:
+        if state.lower() == "national":
+            stmt = stmt.where(Opportunity.state.is_(None))
+        else:
+            stmt = stmt.where(Opportunity.state == state)
+    if sector:
+        stmt = stmt.where(or_(Opportunity.industry == sector, TenderDetail.sector == sector))
+    if tender_status:
+        stmt = stmt.where(TenderDetail.tender_status == tender_status)
+    if lifecycle_status:
+        stmt = stmt.where(Opportunity.lifecycle_status == lifecycle_status)
+    if deadline_before:
+        stmt = stmt.where(Opportunity.deadline <= deadline_before)
+    if deadline_after:
+        stmt = stmt.where(Opportunity.deadline >= deadline_after)
+    if q:
+        kw = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Opportunity.title.ilike(kw),
+                Opportunity.issuing_organisation.ilike(kw),
+                Opportunity.reference_number.ilike(kw),
+                TenderDetail.department.ilike(kw),
+                TenderDetail.tender_id.ilike(kw),
+            )
+        )
+    stmt = stmt.order_by(Opportunity.extracted_at.desc()).limit(limit)
+    items = session.scalars(stmt).all()
+    return [PublicOpportunityOut.model_validate(i) for i in items]
+
+
+@router.get("/tenders/{opp_id}", response_model=AdminOpportunityDetailOut, summary="Retrieve full tender details and verification evidence")
+def get_admin_tender_detail(
+    opp_id: str,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    opp = session.get(Opportunity, opp_id)
+    if not opp or opp.category != "tender":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender not found")
+
+    v_stmt = (
+        select(VerificationRecord)
+        .where(VerificationRecord.opportunity_id == opp.id)
+        .order_by(VerificationRecord.created_at.desc())
+    )
+    v_records = session.scalars(v_stmt).all()
+    detail = AdminOpportunityDetailOut.model_validate(opp)
+    detail.verification_records = v_records
+    return detail
+
+
+# --------------------------------------------------------------------------- Scan Orchestration & Scheduling
 @router.post("/sources/{source_id}/scan", response_model=ScanRunOut, summary="Trigger manual source scan")
 def trigger_scan(
     source_id: str,
@@ -125,22 +199,46 @@ def trigger_scan(
     session: Session = Depends(get_db),
 ):
     orchestrator = Orchestrator(session)
-    scan_run = orchestrator.run_source_scan(source_id=source_id, trigger=f"admin:{current_admin.username}")
+    try:
+        scan_run = orchestrator.run_source_scan(source_id=source_id, trigger=f"admin:{current_admin.username}")
+    except SourceLockedError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     return ScanRunOut.model_validate(scan_run)
+
+
+@router.post("/scheduler/run-due", response_model=list[ScanRunOut], summary="Run scheduled discovery for due active sources")
+def trigger_scheduled_discovery(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.ADMIN))],
+    category: str | None = Query(None, description="Optional category filter (e.g. tender)"),
+    force: bool = Query(False, description="Run even if next_scan_at is in the future"),
+    session: Session = Depends(get_db),
+):
+    orchestrator = Orchestrator(session)
+    runs = orchestrator.run_due_scans(category=category, force=force)
+    return [ScanRunOut.model_validate(r) for r in runs]
 
 
 @router.get("/scans", response_model=list[ScanRunOut], summary="List recent scan runs")
 def list_scans(
     current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.REVIEWER))],
+    source_id: str | None = Query(None),
+    agent_id: str | None = Query(None),
     limit: int = Query(25, le=100),
     session: Session = Depends(get_db),
 ):
-    stmt = select(ScanRun).order_by(ScanRun.started_at.desc()).limit(limit)
+    stmt = select(ScanRun)
+    if source_id:
+        stmt = stmt.where(ScanRun.source_id == source_id)
+    if agent_id:
+        stmt = stmt.where(ScanRun.agent_id == agent_id)
+    stmt = stmt.order_by(ScanRun.started_at.desc()).limit(limit)
     scans = session.scalars(stmt).all()
     return [ScanRunOut.model_validate(s) for s in scans]
 
 
-# --------------------------------------------------------------------------- Sources Management
+# --------------------------------------------------------------------------- Sources Management & Health
 @router.get("/sources", response_model=list[SourceOut], summary="List all source records")
 def list_sources(
     current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
@@ -149,6 +247,19 @@ def list_sources(
     stmt = select(Source).order_by(Source.id.asc())
     sources = session.scalars(stmt).all()
     return [SourceOut.model_validate(s) for s in sources]
+
+
+@router.get("/sources/health", summary="View source integration health and failure alerts")
+def get_source_health(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    orchestrator = Orchestrator(session)
+    sources = session.scalars(select(Source).order_by(Source.id.asc())).all()
+    return {
+        "sources": [SourceOut.model_validate(s) for s in sources],
+        "alerts": orchestrator.get_source_alerts(),
+    }
 
 
 # --------------------------------------------------------------------------- Monitoring & Metrics

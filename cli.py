@@ -5,6 +5,7 @@ import argparse
 import sys
 from app.db import Base, get_engine, session_scope
 from app.enums import LifecycleStatus
+from app.migrations import list_applied_migrations, run_migrations
 from app.models import Opportunity, ScanRun, Source
 from app.orchestrator.service import Orchestrator
 from app.pipeline.lifecycle import transition_lifecycle
@@ -13,13 +14,14 @@ from app.seeds.sources import seed_sources
 
 
 def init_db():
-    print("[*] Initialising database tables...")
+    print("[*] Initialising database tables and running migrations...")
     engine = get_engine()
-    Base.metadata.create_all(bind=engine)
+    applied = run_migrations(engine)
     with session_scope() as session:
         n_sources = seed_sources(session)
         seed_admin_user(session)
-        print(f"[+] Initialised successfully. Seeded {n_sources} sources and default admin user.")
+        print(f"[+] Initialised successfully. Migrations applied: {applied}. Seeded {n_sources} new sources.")
+
 
 
 def list_sources():

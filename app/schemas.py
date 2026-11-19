@@ -13,6 +13,33 @@ STANDARD_DISCLAIMER = (
 
 
 # --------------------------------------------------------------------------- Public Schemas
+class TenderDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    tender_id: str | None
+    reference_number: str | None
+    issuing_authority: str
+    department: str
+    tender_category: str
+    product_category: str
+    sector: str
+    estimated_value: str
+    emd_amount: str
+    tender_fee: str
+    document_download_date: dt.date | None
+    pre_bid_date: dt.date | None
+    pre_bid_details: str
+    bid_opening_date: dt.date | None
+    turnover_requirement: str
+    experience_requirement: str
+    required_registrations: list[str] = Field(default_factory=list)
+    msme_preference: str
+    eligibility_intelligence: dict = Field(default_factory=dict)
+    tender_status: str
+    corrigendum_history: list[dict] = Field(default_factory=list)
+    cancellation_reason: str | None
+
+
 class PublicOpportunityOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,7 +81,9 @@ class PublicOpportunityOut(BaseModel):
 
     lifecycle_status: str
     expiry_status: str
+    tender_detail: TenderDetailOut | None = None
     disclaimer: str = STANDARD_DISCLAIMER
+
 
 
 class PublicOpportunityListResponse(BaseModel):
@@ -187,13 +216,17 @@ class SourceOut(BaseModel):
     collection_method: str
     reliability: str
     support_status: str
+    access_notes: str = ""
     issuing_organisation: str
     scan_frequency_minutes: int
     active: bool
     last_scan_at: dt.datetime | None
     last_success_at: dt.datetime | None
     last_failure_at: dt.datetime | None
+    last_failure_reason: str | None = None
     consecutive_failures: int
+    next_scan_at: dt.datetime | None = None
+
 
 
 class SystemMetricsOut(BaseModel):

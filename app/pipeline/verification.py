@@ -113,16 +113,93 @@ def verify_opportunity(session: Session, opp: Opportunity, source: Source | None
         if not app_allowed:
             flags.append("suspicious_application_redirect")
 
+    # 6. Tender-Specific Verification Checks (Agent 03 -> Agent 07 integration)
+    if opp.category == "tender" or opp.tender_detail is not None:
+        td = opp.tender_detail
+        ev_fields = {e.field for e in opp.evidence}
+
+        # 6a. Tender Reference Consistency
+        has_ref = bool(opp.reference_number and len(opp.reference_number.strip()) >= 3)
+        ref_anchored = "reference_number" in ev_fields
+        checks.append({
+            "name": "tender_reference_consistency",
+            "passed": has_ref and ref_anchored,
+            "detail": (
+                f"Tender reference '{opp.reference_number}' consistent and anchored in source evidence"
+                if (has_ref and ref_anchored)
+                else "Missing or unanchored tender reference number"
+            ),
+        })
+        if not (has_ref and ref_anchored):
+            flags.append("missing_tender_reference")
+
+        # 6b. Publication & Deadline Evidence Check
+        dl_ok = opp.deadline is None or ("deadline" in ev_fields)
+        checks.append({
+            "name": "tender_deadline_evidence",
+            "passed": dl_ok,
+            "detail": (
+                f"Submission deadline ({opp.deadline}) backed by verbatim evidence"
+                if opp.deadline and dl_ok
+                else ("Submission deadline not stated in source" if not opp.deadline else "Deadline lacks source evidence")
+            ),
+        })
+        if not dl_ok:
+            flags.append("unanchored_deadline")
+
+        # 6c. Cancellation & Corrigendum Checks
+        if td:
+            if td.tender_status == "cancelled" or td.cancellation_reason:
+                flags.append("tender_cancelled")
+                checks.append({
+                    "name": "tender_cancellation_check",
+                    "passed": False,
+                    "detail": f"Tender cancelled: {td.cancellation_reason or 'Cancelled notice'}",
+                })
+            else:
+                corr_count = len(td.corrigendum_history or [])
+                checks.append({
+                    "name": "tender_corrigendum_and_status",
+                    "passed": True,
+                    "detail": f"Status='{td.tender_status}', Corrigendums tracked={corr_count}",
+                })
+
+            # 6d. Eligibility Intelligence & Ambiguity Flag
+            elig_info = td.eligibility_intelligence or {}
+            is_ambiguous = bool(elig_info.get("ambiguous_flag", False))
+            checks.append({
+                "name": "tender_eligibility_intelligence",
+                "passed": True,
+                "detail": (
+                    "Eligibility terms require human review (refers to external ATC / tender document)"
+                    if is_ambiguous
+                    else f"Structured eligibility extracted (Turnover={td.turnover_requirement}, MSME={td.msme_preference[:60]})"
+                ),
+            })
+
     # Determine final Verification Status
-    if "expired" in flags:
+    if "tender_cancelled" in flags:
+        status = VerificationStatus.REMOVED
+        requires_human = True
+        opp.lifecycle_status = LifecycleStatus.WITHDRAWN
+        if opp.tender_detail:
+            opp.tender_detail.tender_status = "cancelled"
+    elif "expired" in flags:
         status = VerificationStatus.EXPIRED
         requires_human = False
         opp.lifecycle_status = LifecycleStatus.EXPIRED
-    elif "domain_mismatch" in flags or "suspicious_application_redirect" in flags or "conflicting_dates" in flags:
+        if opp.tender_detail:
+            opp.tender_detail.tender_status = "expired"
+    elif (
+        "domain_mismatch" in flags
+        or "suspicious_application_redirect" in flags
+        or "conflicting_dates" in flags
+        or "unanchored_deadline" in flags
+    ):
         status = VerificationStatus.CONFLICTING
         requires_human = True
         opp.lifecycle_status = LifecycleStatus.NEEDS_HUMAN_REVIEW
-    elif "missing_mandatory_fields" in flags or "insufficient_evidence" in flags:
+    elif "missing_mandatory_fields" in flags or "insufficient_evidence" in flags or "missing_tender_reference" in flags:
         status = VerificationStatus.INSUFFICIENT_EVIDENCE
         requires_human = True
         opp.lifecycle_status = LifecycleStatus.NEEDS_HUMAN_REVIEW
@@ -136,7 +213,9 @@ def verify_opportunity(session: Session, opp: Opportunity, source: Source | None
             status = VerificationStatus.THIRD_PARTY
 
         requires_human = True
-        opp.lifecycle_status = LifecycleStatus.NEEDS_HUMAN_REVIEW
+        if opp.lifecycle_status not in (LifecycleStatus.PUBLISHED, LifecycleStatus.APPROVED):
+            opp.lifecycle_status = LifecycleStatus.NEEDS_HUMAN_REVIEW
+
 
     opp.verification_status = status
     opp.verified_at = now

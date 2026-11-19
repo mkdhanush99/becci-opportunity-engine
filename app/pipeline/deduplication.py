@@ -10,8 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.enums import LifecycleStatus, SourceReliability
-from app.models import Opportunity, OpportunitySourceLink, OpportunityVersion, utcnow
+from app.models import Opportunity, OpportunitySourceLink, OpportunityVersion, TenderDetail, utcnow
 from app.pipeline.extraction import title_key
+
 
 
 RELIABILITY_RANK = {
@@ -42,6 +43,14 @@ def find_existing_match(session: Session, opp: Opportunity) -> Opportunity | Non
         existing = session.scalars(stmt).first()
         if existing:
             return existing
+
+    # 2b. Tender ID match in tender_details
+    if opp.tender_detail and opp.tender_detail.tender_id:
+        td_stmt = select(TenderDetail).where(TenderDetail.tender_id == opp.tender_detail.tender_id)
+        td_existing = session.scalars(td_stmt).first()
+        if td_existing and td_existing.opportunity:
+            return td_existing.opportunity
+
 
     # 3. Fuzzy title match with exact organisation/category
     stmt = select(Opportunity).where(
@@ -93,6 +102,7 @@ def handle_deduplication_and_changes(
             existing.title = new_opp.title
 
         # Check deadline changes (critical)
+        old_deadline = existing.deadline
         if existing.deadline != new_opp.deadline:
             changed_fields.append("deadline")
             existing.deadline = new_opp.deadline
@@ -107,6 +117,44 @@ def handle_deduplication_and_changes(
                 else:
                     existing.expiry_status = "active"
             significant = True
+
+        # Check tender detail changes (corrigendums, extensions, cancellations)
+        if existing.tender_detail and new_opp.tender_detail:
+            etd = existing.tender_detail
+            ntd = new_opp.tender_detail
+            if old_deadline and new_opp.deadline and new_opp.deadline > old_deadline and ntd.tender_status != "cancelled":
+                etd.tender_status = "extended"
+                changed_fields.append("tender_status")
+                corr_list = list(etd.corrigendum_history or [])
+                corr_list.append(
+                    {
+                        "title": "Deadline Extended",
+                        "old_deadline": old_deadline.isoformat(),
+                        "new_deadline": new_opp.deadline.isoformat(),
+                        "detected_at": now.isoformat(),
+                    }
+                )
+                etd.corrigendum_history = corr_list
+                significant = True
+            elif ntd.tender_status == "cancelled" and etd.tender_status != "cancelled":
+                etd.tender_status = "cancelled"
+                etd.cancellation_reason = ntd.cancellation_reason or "Cancelled by issuing authority"
+                existing.lifecycle_status = LifecycleStatus.WITHDRAWN
+                changed_fields.extend(["tender_status", "cancellation_reason"])
+                significant = True
+            elif ntd.corrigendum_history and ntd.corrigendum_history != etd.corrigendum_history:
+                etd.corrigendum_history = ntd.corrigendum_history
+                etd.tender_status = ntd.tender_status
+                changed_fields.append("corrigendum_history")
+                significant = True
+            if ntd.estimated_value != "Not published" and etd.estimated_value == "Not published":
+                etd.estimated_value = ntd.estimated_value
+                changed_fields.append("estimated_value")
+            if ntd.emd_amount != "Not published" and etd.emd_amount == "Not published":
+                etd.emd_amount = ntd.emd_amount
+                changed_fields.append("emd_amount")
+            etd.updated_at = now
+
 
         # Check reference number changes
         if existing.reference_number != new_opp.reference_number and new_opp.reference_number:

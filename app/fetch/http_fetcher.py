@@ -34,7 +34,9 @@ class BlockedError(Exception):
 CAPTCHA_MARKERS = re.compile(
     r"\b(g-recaptcha|hcaptcha|cf-turnstile|captcha-delivery|verify you are human|are you a robot|"
     r"cf-chl-|challenge-platform|altcha)\b", re.I)
-LOGIN_PATH = re.compile(r"/(login|signin|sign-in|auth|sso)(/|\?|$)", re.I)
+LOGIN_PATH = re.compile(r"/(login|signin|sign-in|auth|sso)(/|\.html|\?|$)", re.I)
+JS_LOGIN_GATE = re.compile(r"document\.loginForm\.(action|submit)", re.I)
+
 
 
 @dataclass
@@ -87,7 +89,10 @@ def detect_block(status: int, final_url: str, body_text: str) -> str | None:
         return "rate limited by site (HTTP 429)"
     if CAPTCHA_MARKERS.search(body_text[:200_000]):
         return "CAPTCHA / anti-bot challenge detected"
+    if JS_LOGIN_GATE.search(body_text[:10_000]):
+        return "mandatory login/session form handshake detected"
     return None
+
 
 
 class HttpFetcher:
@@ -168,6 +173,40 @@ class HttpFetcher:
             return FetchResult(url=url, final_url=current, status=status, content_type=ctype, body=body,
                                redirects=redirects)
         raise FetchError(f"too many redirects from {url}")
+
+    def post(self, url: str, *, data: dict | None = None, headers: dict | None = None,
+             max_bytes: int | None = None) -> FetchResult:
+        s = self.settings
+        max_bytes = max_bytes or s.max_response_bytes
+        current = self.check_allowed(url)
+        throttle.wait(host_of(current), s.per_domain_min_interval_seconds)
+        started = time.monotonic()
+        try:
+            with self.client.stream("POST", current, data=data, headers=headers) as r:
+                chunks, total = [], 0
+                for chunk in r.iter_bytes():
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise FetchError(f"response exceeds {max_bytes} bytes")
+                    chunks.append(chunk)
+                body = b"".join(chunks)
+                status, resp_headers = r.status_code, r.headers
+        except httpx.TimeoutException as e:
+            self._log(current, None, started, f"timeout: {e}")
+            raise FetchError(f"timeout posting to {current}") from e
+        except httpx.HTTPError as e:
+            self._log(current, None, started, f"{type(e).__name__}: {e}")
+            raise FetchError(f"{type(e).__name__} posting to {current}: {e}") from e
+        self._log(current, status, started)
+        ctype = resp_headers.get("content-type", "")
+        text_probe = body[:200_000].decode("utf-8", errors="ignore") if "html" in ctype or "json" in ctype else ""
+        reason = detect_block(status, current, text_probe)
+        if reason:
+            raise BlockedError(reason)
+        if status >= 500:
+            raise FetchError(f"server error HTTP {status} at {current}")
+        return FetchResult(url=url, final_url=current, status=status, content_type=ctype, body=body)
+
 
     def _log(self, url, status, started, error=None):
         self.visited.append({"url": url, "status": status, "method": "http",

@@ -17,7 +17,8 @@ from dataclasses import dataclass, field
 
 from bs4 import BeautifulSoup
 
-DROP_TAGS = ["script", "style", "noscript", "template", "iframe", "object", "embed", "svg", "form", "canvas"]
+DROP_TAGS = ["script", "style", "noscript", "template", "iframe", "object", "embed", "svg", "canvas"]
+
 
 MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}

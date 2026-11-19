@@ -9,15 +9,16 @@ from app.api.admin import router as admin_router
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.db import Base, get_engine, session_scope
+from app.migrations import run_migrations
 from app.security.auth import seed_admin_user
 from app.seeds.sources import seed_sources
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize database tables
+    # Initialize database tables & run explicit migrations
     engine = get_engine()
-    Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
 
     # Seed default sources and initial admin user
     with session_scope() as session:
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
         seed_admin_user(session, username="admin", password="BecciAdmin2026!")
 
     yield
+
 
 
 settings = get_settings()

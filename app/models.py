@@ -212,6 +212,10 @@ class Opportunity(Base):
                                                                  order_by="OpportunityVersion.version")
     supporting_sources: Mapped[list["OpportunitySourceLink"]] = relationship(back_populates="opportunity",
                                                                              cascade="all, delete-orphan")
+    tender_detail: Mapped["TenderDetail | None"] = relationship(
+        back_populates="opportunity", uselist=False, cascade="all, delete-orphan"
+    )
+
 
 
 class Evidence(Base):
@@ -265,6 +269,41 @@ class VerificationRecord(Base):
     requires_human_review: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
+
+class TenderDetail(Base):
+    """1-to-1 extension table for government and institutional procurement tenders."""
+    __tablename__ = "tender_details"
+
+    opportunity_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("opportunities.id", ondelete="CASCADE"), primary_key=True
+    )
+    tender_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    reference_number: Mapped[str | None] = mapped_column(String(128), index=True)
+    issuing_authority: Mapped[str] = mapped_column(String(255))
+    department: Mapped[str] = mapped_column(String(255), default="Not stated")
+    tender_category: Mapped[str] = mapped_column(String(64), default="Not stated")
+    product_category: Mapped[str] = mapped_column(String(255), default="Not stated")
+    sector: Mapped[str] = mapped_column(String(64), index=True, default="Other industries")
+    estimated_value: Mapped[str] = mapped_column(String(128), default="Not published")
+    emd_amount: Mapped[str] = mapped_column(String(128), default="Not published")
+    tender_fee: Mapped[str] = mapped_column(String(128), default="Not published")
+    document_download_date: Mapped[dt.date | None] = mapped_column(Date)
+    pre_bid_date: Mapped[dt.date | None] = mapped_column(Date)
+    pre_bid_details: Mapped[str] = mapped_column(Text, default="Not published")
+    bid_opening_date: Mapped[dt.date | None] = mapped_column(Date)
+    turnover_requirement: Mapped[str] = mapped_column(String(255), default="Not stated")
+    experience_requirement: Mapped[str] = mapped_column(Text, default="Not stated")
+    required_registrations: Mapped[list] = mapped_column(JSON, default=list)
+    msme_preference: Mapped[str] = mapped_column(Text, default="Not stated")
+    eligibility_intelligence: Mapped[dict] = mapped_column(JSON, default=dict)
+    tender_status: Mapped[str] = mapped_column(String(32), index=True, default="open")
+    corrigendum_history: Mapped[list] = mapped_column(JSON, default=list)
+    cancellation_reason: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="tender_detail")
+
 
 
 # --------------------------------------------------------------------------- Admin

@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import datetime as dt
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.enums import LifecycleStatus, PUBLIC_STATUSES
-from app.models import Opportunity, Source
+from app.models import Opportunity, Source, TenderDetail
 from app.schemas import (
     CategoryCount,
     LocationCount,
@@ -25,45 +25,71 @@ def health_check(session: Session = Depends(get_db)):
     return {
         "status": "healthy",
         "service": "BECCI Opportunity Intelligence Engine",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
 
 
-@router.get("/opportunities", response_model=PublicOpportunityListResponse, summary="List verified public opportunities")
-def list_opportunities(
-    category: str | None = Query(None, description="Filter by category (job, funding, tender, etc.)"),
-    state: str | None = Query(None, description="Filter by state (Telangana, Maharashtra, etc.)"),
-    q: str | None = Query(None, description="Text search in title or issuing organisation"),
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    session: Session = Depends(get_db),
-):
+def _query_public_opportunities(
+    session: Session,
+    *,
+    category: str | None = None,
+    state: str | None = None,
+    sector: str | None = None,
+    tender_status: str | None = None,
+    deadline_before: dt.date | None = None,
+    deadline_after: dt.date | None = None,
+    q: str | None = None,
+    page: int = 1,
+    limit: int = 20,
+) -> PublicOpportunityListResponse:
     offset = (page - 1) * limit
     stmt = (
         select(Opportunity)
+        .outerjoin(TenderDetail, Opportunity.id == TenderDetail.opportunity_id)
         .where(
             Opportunity.lifecycle_status.in_(PUBLIC_STATUSES),
-            Opportunity.is_fixture.is_(False)
+            Opportunity.is_fixture.is_(False),
         )
     )
 
     if category:
         stmt = stmt.where(Opportunity.category == category)
     if state:
-        stmt = stmt.where(Opportunity.state == state)
+        if state.lower() == "national":
+            stmt = stmt.where(Opportunity.state.is_(None))
+        else:
+            stmt = stmt.where(Opportunity.state == state)
+    if sector:
+        stmt = stmt.where(
+            or_(Opportunity.industry == sector, TenderDetail.sector == sector)
+        )
+    if tender_status:
+        stmt = stmt.where(TenderDetail.tender_status == tender_status)
+    if deadline_before:
+        stmt = stmt.where(Opportunity.deadline <= deadline_before)
+    if deadline_after:
+        stmt = stmt.where(Opportunity.deadline >= deadline_after)
     if q:
         kw = f"%{q.strip()}%"
         stmt = stmt.where(
-            (Opportunity.title.ilike(kw)) | (Opportunity.issuing_organisation.ilike(kw))
+            or_(
+                Opportunity.title.ilike(kw),
+                Opportunity.issuing_organisation.ilike(kw),
+                Opportunity.reference_number.ilike(kw),
+                TenderDetail.department.ilike(kw),
+                TenderDetail.tender_id.ilike(kw),
+            )
         )
 
-    # Count total
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = session.scalar(count_stmt) or 0
 
-    # Sort: closing soon first, then recent verified
-    items_stmt = stmt.order_by(Opportunity.deadline.asc().nullslast(), Opportunity.verified_at.desc()).offset(offset).limit(limit)
+    items_stmt = (
+        stmt.order_by(Opportunity.deadline.asc().nullslast(), Opportunity.verified_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     items = session.scalars(items_stmt).all()
 
     return PublicOpportunityListResponse(
@@ -75,20 +101,31 @@ def list_opportunities(
     )
 
 
-@router.get("/opportunities/{id_or_slug}", response_model=PublicOpportunityOut, summary="Get public opportunity by ID or slug")
-def get_opportunity(id_or_slug: str, session: Session = Depends(get_db)):
-    stmt = (
-        select(Opportunity)
-        .where(
-            (Opportunity.id == id_or_slug) | (Opportunity.slug == id_or_slug),
-            Opportunity.lifecycle_status.in_(PUBLIC_STATUSES),
-            Opportunity.is_fixture.is_(False)
-        )
+@router.get("/opportunities", response_model=PublicOpportunityListResponse, summary="List verified public opportunities")
+def list_opportunities(
+    category: str | None = Query(None, description="Filter by category (job, funding, tender, etc.)"),
+    state: str | None = Query(None, description="Filter by state (Telangana, Maharashtra, National, etc.)"),
+    sector: str | None = Query(None, description="Filter by BECCI industry sector"),
+    tender_status: str | None = Query(None, description="Filter tenders by status (open, closing_soon, extended, etc.)"),
+    deadline_before: dt.date | None = Query(None, description="Filter opportunities with deadline on or before date"),
+    deadline_after: dt.date | None = Query(None, description="Filter opportunities with deadline on or after date"),
+    q: str | None = Query(None, description="Search title, issuing authority, department, or reference number"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    session: Session = Depends(get_db),
+):
+    return _query_public_opportunities(
+        session,
+        category=category,
+        state=state,
+        sector=sector,
+        tender_status=tender_status,
+        deadline_before=deadline_before,
+        deadline_after=deadline_after,
+        q=q,
+        page=page,
+        limit=limit,
     )
-    opp = session.scalars(stmt).first()
-    if not opp:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found or not published")
-    return PublicOpportunityOut.model_validate(opp)
 
 
 @router.get("/opportunities/closing-soon", response_model=list[PublicOpportunityOut], summary="Opportunities closing within 7 days")
@@ -108,6 +145,82 @@ def list_closing_soon(limit: int = Query(10, le=50), session: Session = Depends(
     )
     items = session.scalars(stmt).all()
     return [PublicOpportunityOut.model_validate(i) for i in items]
+
+
+@router.get("/opportunities/featured", response_model=list[PublicOpportunityOut], summary="Featured verified opportunities")
+def list_featured(limit: int = Query(10, le=50), session: Session = Depends(get_db)):
+    stmt = (
+        select(Opportunity)
+        .where(
+            Opportunity.lifecycle_status.in_(PUBLIC_STATUSES),
+            Opportunity.is_fixture.is_(False),
+            Opportunity.featured.is_(True),
+        )
+        .order_by(Opportunity.verified_at.desc())
+        .limit(limit)
+    )
+    items = session.scalars(stmt).all()
+    return [PublicOpportunityOut.model_validate(i) for i in items]
+
+
+@router.get("/opportunities/{id_or_slug}", response_model=PublicOpportunityOut, summary="Get public opportunity by ID or slug")
+def get_opportunity(id_or_slug: str, session: Session = Depends(get_db)):
+    stmt = (
+        select(Opportunity)
+        .where(
+            (Opportunity.id == id_or_slug) | (Opportunity.slug == id_or_slug),
+            Opportunity.lifecycle_status.in_(PUBLIC_STATUSES),
+            Opportunity.is_fixture.is_(False),
+        )
+    )
+    opp = session.scalars(stmt).first()
+    if not opp:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found or not published")
+    return PublicOpportunityOut.model_validate(opp)
+
+
+# --------------------------------------------------------------------------- Dedicated Tender Endpoints
+@router.get("/tenders", response_model=PublicOpportunityListResponse, summary="List verified public government & PSU tenders")
+def list_public_tenders(
+    state: str | None = Query(None, description="Filter by state (Telangana, Maharashtra, National, etc.)"),
+    sector: str | None = Query(None, description="Filter by BECCI sector (Manufacturing, IT and technology, etc.)"),
+    tender_status: str | None = Query(None, description="Filter by tender status (open, closing_soon, extended)"),
+    deadline_before: dt.date | None = Query(None, description="Submission deadline on or before date (YYYY-MM-DD)"),
+    deadline_after: dt.date | None = Query(None, description="Submission deadline on or after date (YYYY-MM-DD)"),
+    q: str | None = Query(None, description="Search by department, ministry, title, or tender reference number"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    session: Session = Depends(get_db),
+):
+    return _query_public_opportunities(
+        session,
+        category="tender",
+        state=state,
+        sector=sector,
+        tender_status=tender_status,
+        deadline_before=deadline_before,
+        deadline_after=deadline_after,
+        q=q,
+        page=page,
+        limit=limit,
+    )
+
+
+@router.get("/tenders/{id_or_slug}", response_model=PublicOpportunityOut, summary="Get verified public tender details")
+def get_public_tender(id_or_slug: str, session: Session = Depends(get_db)):
+    stmt = (
+        select(Opportunity)
+        .where(
+            Opportunity.category == "tender",
+            (Opportunity.id == id_or_slug) | (Opportunity.slug == id_or_slug),
+            Opportunity.lifecycle_status.in_(PUBLIC_STATUSES),
+            Opportunity.is_fixture.is_(False),
+        )
+    )
+    opp = session.scalars(stmt).first()
+    if not opp:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tender not found or not published")
+    return PublicOpportunityOut.model_validate(opp)
 
 
 @router.get("/categories", response_model=list[CategoryCount], summary="Opportunity counts per category")

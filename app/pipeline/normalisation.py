@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import datetime as dt
 from app.enums import ExpiryStatus, LifecycleStatus, SourceReliability
-from app.models import Evidence, Opportunity, OpportunityVersion, Source, new_id, utcnow
+from app.models import Evidence, Opportunity, OpportunityVersion, Source, TenderDetail, new_id, utcnow
 from app.pipeline.extraction import ExtractedItem, parse_date, sha256, slugify, title_key
+
 
 
 def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixture: bool = False) -> Opportunity:
@@ -33,13 +34,16 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
         exp_status = ExpiryStatus.DATE_UNAVAILABLE
 
     # Geography
-    state = source.geographic_coverage[0] if len(source.geographic_coverage) == 1 and source.geographic_coverage[0] != "National" else None
-    if not state and "telangana" in item.title.lower() or "tgpsc" in item.external_key:
+    state = item.fields.get("state")
+    if not state:
+        state = source.geographic_coverage[0] if len(source.geographic_coverage) == 1 and source.geographic_coverage[0] != "National" else None
+    if not state and ("telangana" in item.title.lower() or "tgpsc" in item.external_key):
         state = "Telangana"
-    elif not state and "maharashtra" in item.title.lower() or "mpsc" in item.external_key:
+    elif not state and ("maharashtra" in item.title.lower() or "mpsc" in item.external_key):
         state = "Maharashtra"
 
-    location_type = "national" if not state else "state"
+    location_type = item.fields.get("location_type") or ("national" if not state else "state")
+
 
     # Fingerprints for deduplication & change detection
     content_fp = sha256(item.raw_text[:20000])
@@ -143,4 +147,35 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
         )
     )
 
+    # Attach 1-to-1 TenderDetail record for procurement tenders
+    if opp.category == "tender":
+        f = item.fields
+        opp.tender_detail = TenderDetail(
+            opportunity_id=opp_id,
+            tender_id=f.get("tender_id") or opp.reference_number,
+            reference_number=opp.reference_number,
+            issuing_authority=opp.issuing_organisation,
+            department=f.get("department") or "Not stated",
+            tender_category=f.get("tender_category") or (opp.subcategory or "Not stated"),
+            product_category=f.get("product_category") or "Not stated",
+            sector=f.get("sector") or opp.industry or "Other industries",
+            estimated_value=f.get("estimated_value") or "Not published",
+            emd_amount=f.get("emd_amount") or "Not published",
+            tender_fee=f.get("tender_fee") or "Not published",
+            document_download_date=parse_date(f.get("document_download_date", "")),
+            pre_bid_date=parse_date(f.get("pre_bid_date", "")),
+            pre_bid_details=f.get("pre_bid_details") or "Not published",
+            bid_opening_date=parse_date(f.get("bid_opening_date", "")) or open_date,
+            turnover_requirement=f.get("turnover_requirement") or "Not stated",
+            experience_requirement=f.get("experience_requirement") or "Not stated",
+            required_registrations=f.get("required_registrations") or [],
+            msme_preference=f.get("msme_preference") or "Not stated",
+            eligibility_intelligence=f.get("eligibility_intelligence") or {},
+            tender_status=f.get("tender_status") or "open",
+            corrigendum_history=f.get("corrigendum_history") or [],
+            cancellation_reason=f.get("cancellation_reason"),
+            updated_at=now,
+        )
+
     return opp
+

@@ -88,3 +88,36 @@ class AdminRole(StrEnum):
 
 
 ROLE_RANK = {AdminRole.VIEWER: 0, AdminRole.REVIEWER: 1, AdminRole.ADMIN: 2}
+
+
+class BECCISector(StrEnum):
+    MANUFACTURING = "Manufacturing"
+    TRADING_DISTRIBUTION = "Trading and distribution"
+    SERVICES = "Services"
+    HEALTHCARE = "Healthcare"
+    EDUCATION_TRAINING = "Education and training"
+    AGRICULTURE_ALLIED = "Agriculture and allied activities"
+    IT_TECHNOLOGY = "IT and technology"
+    CONSTRUCTION_INFRASTRUCTURE = "Construction and infrastructure"
+    FINANCE_PROFESSIONAL = "Finance and professional services"
+    HOSPITALITY_TOURISM = "Hospitality and tourism"
+    OTHER = "Other industries"
+
+
+class GeographicLevel(StrEnum):
+    NATIONAL = "national"
+    STATE = "state"
+    DISTRICT = "district"
+    LOCAL = "local"
+
+
+class TenderStatus(StrEnum):
+    UPCOMING = "upcoming"
+    OPEN = "open"
+    CLOSING_SOON = "closing_soon"
+    CLOSED = "closed"
+    CANCELLED = "cancelled"
+    EXTENDED = "extended"
+    UNDER_VERIFICATION = "under_verification"
+    EXPIRED = "expired"
+
