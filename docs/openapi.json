@@ -1,0 +1,4927 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BECCI Opportunity Intelligence Engine",
+    "description": "Autonomous Browser-Based Research Agents, Opportunity Discovery & Personalised Matching Platform for Bahujan Entrepreneurs Chamber for Commerce & Industry (BECCI).",
+    "version": "3.0.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Service health check",
+        "operationId": "health_check_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Supported public filter & onboarding metadata",
+        "operationId": "get_public_metadata_api_v1_metadata_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/opportunities": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "List verified public opportunities",
+        "operationId": "list_opportunities_api_v1_opportunities_get",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by category (job, funding, tender, etc.)",
+              "title": "Category"
+            },
+            "description": "Filter by category (job, funding, tender, etc.)"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by state (Telangana, Maharashtra, National, etc.)",
+              "title": "State"
+            },
+            "description": "Filter by state (Telangana, Maharashtra, National, etc.)"
+          },
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by BECCI industry sector",
+              "title": "Sector"
+            },
+            "description": "Filter by BECCI industry sector"
+          },
+          {
+            "name": "tender_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter tenders by status (open, closing_soon, extended, etc.)",
+              "title": "Tender Status"
+            },
+            "description": "Filter tenders by status (open, closing_soon, extended, etc.)"
+          },
+          {
+            "name": "deadline_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter opportunities with deadline on or before date",
+              "title": "Deadline Before"
+            },
+            "description": "Filter opportunities with deadline on or before date"
+          },
+          {
+            "name": "deadline_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter opportunities with deadline on or after date",
+              "title": "Deadline After"
+            },
+            "description": "Filter opportunities with deadline on or after date"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search title, issuing authority, department, or reference number",
+              "title": "Q"
+            },
+            "description": "Search title, issuing authority, department, or reference number"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOpportunityListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/opportunities/closing-soon": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Opportunities closing within 7 days",
+        "operationId": "list_closing_soon_api_v1_opportunities_closing_soon_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicOpportunityOut"
+                  },
+                  "title": "Response List Closing Soon Api V1 Opportunities Closing Soon Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/opportunities/featured": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Featured verified opportunities",
+        "operationId": "list_featured_api_v1_opportunities_featured_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicOpportunityOut"
+                  },
+                  "title": "Response List Featured Api V1 Opportunities Featured Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/opportunities/{id_or_slug}": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Get public opportunity by ID or slug",
+        "operationId": "get_opportunity_api_v1_opportunities__id_or_slug__get",
+        "parameters": [
+          {
+            "name": "id_or_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Or Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOpportunityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenders": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "List verified public government & PSU tenders",
+        "operationId": "list_public_tenders_api_v1_tenders_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by state (Telangana, Maharashtra, National, etc.)",
+              "title": "State"
+            },
+            "description": "Filter by state (Telangana, Maharashtra, National, etc.)"
+          },
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by BECCI sector (Manufacturing, IT and technology, etc.)",
+              "title": "Sector"
+            },
+            "description": "Filter by BECCI sector (Manufacturing, IT and technology, etc.)"
+          },
+          {
+            "name": "tender_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by tender status (open, closing_soon, extended)",
+              "title": "Tender Status"
+            },
+            "description": "Filter by tender status (open, closing_soon, extended)"
+          },
+          {
+            "name": "deadline_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Submission deadline on or before date (YYYY-MM-DD)",
+              "title": "Deadline Before"
+            },
+            "description": "Submission deadline on or before date (YYYY-MM-DD)"
+          },
+          {
+            "name": "deadline_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Submission deadline on or after date (YYYY-MM-DD)",
+              "title": "Deadline After"
+            },
+            "description": "Submission deadline on or after date (YYYY-MM-DD)"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search by department, ministry, title, or tender reference number",
+              "title": "Q"
+            },
+            "description": "Search by department, ministry, title, or tender reference number"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOpportunityListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenders/{id_or_slug}": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Get verified public tender details",
+        "operationId": "get_public_tender_api_v1_tenders__id_or_slug__get",
+        "parameters": [
+          {
+            "name": "id_or_slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id Or Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOpportunityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Opportunity counts per category",
+        "operationId": "get_categories_api_v1_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryCount"
+                  },
+                  "type": "array",
+                  "title": "Response Get Categories Api V1 Categories Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/locations": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "Opportunity counts per geographic state",
+        "operationId": "get_locations_api_v1_locations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LocationCount"
+                  },
+                  "type": "array",
+                  "title": "Response Get Locations Api V1 Locations Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources": {
+      "get": {
+        "tags": [
+          "Public Opportunity API"
+        ],
+        "summary": "List registered public discovery sources",
+        "operationId": "list_public_sources_api_v1_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublicSourceOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Public Sources Api V1 Sources Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/auth/register": {
+      "post": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Register BECCI member account",
+        "operationId": "register_member_api_v1_member_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/auth/login": {
+      "post": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "BECCI member login",
+        "operationId": "login_member_api_v1_member_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/profile": {
+      "get": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Retrieve authenticated member's business profile",
+        "operationId": "get_profile_api_v1_member_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessProfileOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Update authenticated member's business profile",
+        "operationId": "upsert_profile_api_v1_member_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessProfileOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Create or update authenticated member's business profile",
+        "operationId": "upsert_profile_api_v1_member_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessProfileOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/member/recommendations": {
+      "get": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Get personalised ranked opportunities",
+        "operationId": "get_recommendations_api_v1_member_recommendations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by category (tender, funding, job)",
+              "title": "Category"
+            },
+            "description": "Filter by category (tender, funding, job)"
+          },
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by BECCI sector",
+              "title": "Sector"
+            },
+            "description": "Filter by BECCI sector"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by state or 'National'",
+              "title": "State"
+            },
+            "description": "Filter by state or 'National'"
+          },
+          {
+            "name": "eligibility_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by eligibility status",
+              "title": "Eligibility Status"
+            },
+            "description": "Filter by eligibility status"
+          },
+          {
+            "name": "min_score",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 100.0,
+                  "minimum": 0.0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Score"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/opportunities/{opp_id}/match": {
+      "get": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "View match explanation for a specific published opportunity",
+        "operationId": "get_opportunity_match_explanation_api_v1_member_opportunities__opp_id__match_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpportunityMatchOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/saved/{opp_id}": {
+      "post": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Save an opportunity",
+        "operationId": "save_opportunity_api_v1_member_saved__opp_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SaveOpportunityRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Req"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedOpportunityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Remove a saved opportunity",
+        "operationId": "unsave_opportunity_api_v1_member_saved__opp_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/saved": {
+      "get": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "List authenticated member's saved opportunities",
+        "operationId": "list_saved_opportunities_api_v1_member_saved_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SavedOpportunityOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Saved Opportunities Api V1 Member Saved Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/member/viewed/{opp_id}": {
+      "post": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "Record that member viewed an opportunity",
+        "operationId": "record_viewed_opportunity_api_v1_member_viewed__opp_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewedOpportunityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/member/viewed": {
+      "get": {
+        "tags": [
+          "Member Business Profile & Matching API"
+        ],
+        "summary": "List authenticated member's viewed opportunities",
+        "operationId": "list_viewed_opportunities_api_v1_member_viewed_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ViewedOpportunityOut"
+                  },
+                  "title": "Response List Viewed Opportunities Api V1 Member Viewed Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/auth/login": {
+      "post": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Admin login",
+        "operationId": "login_api_admin_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/queue": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "List opportunities pending human review",
+        "operationId": "get_review_queue_api_admin_queue_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicOpportunityOut"
+                  },
+                  "title": "Response Get Review Queue Api Admin Queue Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/opportunities/{opp_id}": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Inspect extracted opportunity & evidence",
+        "operationId": "get_opportunity_detail_api_admin_opportunities__opp_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOpportunityDetailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/opportunities/{opp_id}/review": {
+      "post": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Approve, reject, publish or edit presentation wording",
+        "operationId": "review_opportunity_api_admin_opportunities__opp_id__review_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminOpportunityReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicOpportunityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tenders": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "List all discovered tenders with procurement filters",
+        "operationId": "list_admin_tenders_api_admin_tenders_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by state (Telangana, Maharashtra, National, etc.)",
+              "title": "State"
+            },
+            "description": "Filter by state (Telangana, Maharashtra, National, etc.)"
+          },
+          {
+            "name": "sector",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by BECCI sector",
+              "title": "Sector"
+            },
+            "description": "Filter by BECCI sector"
+          },
+          {
+            "name": "tender_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by tender status (open, closing_soon, extended, cancelled, expired)",
+              "title": "Tender Status"
+            },
+            "description": "Filter by tender status (open, closing_soon, extended, cancelled, expired)"
+          },
+          {
+            "name": "lifecycle_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by lifecycle status",
+              "title": "Lifecycle Status"
+            },
+            "description": "Filter by lifecycle status"
+          },
+          {
+            "name": "deadline_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deadline Before"
+            }
+          },
+          {
+            "name": "deadline_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deadline After"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search by department, ministry, title, or tender reference",
+              "title": "Q"
+            },
+            "description": "Search by department, ministry, title, or tender reference"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicOpportunityOut"
+                  },
+                  "title": "Response List Admin Tenders Api Admin Tenders Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tenders/{opp_id}": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Retrieve full tender details and verification evidence",
+        "operationId": "get_admin_tender_detail_api_admin_tenders__opp_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opp_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Opp Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOpportunityDetailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/sources/{source_id}/scan": {
+      "post": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Trigger manual source scan",
+        "operationId": "trigger_scan_api_admin_sources__source_id__scan_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanRunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/scheduler/run-due": {
+      "post": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Run scheduled discovery for due active sources",
+        "operationId": "trigger_scheduled_discovery_api_admin_scheduler_run_due_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional category filter (e.g. tender)",
+              "title": "Category"
+            },
+            "description": "Optional category filter (e.g. tender)"
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Run even if next_scan_at is in the future",
+              "default": false,
+              "title": "Force"
+            },
+            "description": "Run even if next_scan_at is in the future"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScanRunOut"
+                  },
+                  "title": "Response Trigger Scheduled Discovery Api Admin Scheduler Run Due Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/scans": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "List recent scan runs",
+        "operationId": "list_scans_api_admin_scans_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "default": 25,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScanRunOut"
+                  },
+                  "title": "Response List Scans Api Admin Scans Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/sources": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "List all source records",
+        "operationId": "list_sources_api_admin_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Sources Api Admin Sources Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/sources/health": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "View source integration health and failure alerts",
+        "operationId": "get_source_health_api_admin_sources_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/metrics": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "System-wide operational metrics",
+        "operationId": "get_metrics_api_admin_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemMetricsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/matching/config": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Review current matching rules and scoring weights",
+        "operationId": "get_matching_config_api_admin_matching_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingConfigOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Configure matching scoring weights",
+        "operationId": "update_matching_config_api_admin_matching_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchingConfigUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingConfigOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/matching/profiles": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "List registered member business profiles for inspection",
+        "operationId": "list_business_profiles_api_admin_matching_profiles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BusinessProfileOut"
+                  },
+                  "title": "Response List Business Profiles Api Admin Matching Profiles Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/matching/inspect/{profile_id}": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Inspect recommendation explanations for a business profile",
+        "operationId": "inspect_profile_recommendations_api_admin_matching_inspect__profile_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          },
+          {
+            "name": "include_unpublished",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Dry-run preview including unpublished opportunities (does not publish)",
+              "default": false,
+              "title": "Include Unpublished"
+            },
+            "description": "Dry-run preview including unpublished opportunities (does not publish)"
+          },
+          {
+            "name": "include_expired",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include expired opportunities for audit inspection",
+              "default": false,
+              "title": "Include Expired"
+            },
+            "description": "Include expired opportunities for audit inspection"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OpportunityMatchOut"
+                  },
+                  "title": "Response Inspect Profile Recommendations Api Admin Matching Inspect  Profile Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/matching/feedback": {
+      "post": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Flag false-positive match or incomplete eligibility",
+        "operationId": "record_match_feedback_api_admin_matching_feedback_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchFeedbackIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchFeedbackOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "List admin match feedback and false-positive flags",
+        "operationId": "list_match_feedback_api_admin_matching_feedback_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "flag_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flag Type"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MatchFeedbackOut"
+                  },
+                  "title": "Response List Match Feedback Api Admin Matching Feedback Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/matching/incomplete-eligibility": {
+      "get": {
+        "tags": [
+          "Administrator Workflow & Control"
+        ],
+        "summary": "Review opportunities with incomplete or ambiguous eligibility criteria",
+        "operationId": "list_incomplete_eligibility_opportunities_api_admin_matching_incomplete_eligibility_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IncompleteEligibilityOut"
+                  },
+                  "title": "Response List Incomplete Eligibility Opportunities Api Admin Matching Incomplete Eligibility Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminLoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AdminLoginRequest"
+      },
+      "AdminOpportunityDetailOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "issuing_organisation": {
+            "type": "string",
+            "title": "Issuing Organisation"
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "location_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Type"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "qualification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualification"
+          },
+          "experience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experience"
+          },
+          "eligibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligibility"
+          },
+          "benefits": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benefits"
+          },
+          "financial_details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Financial Details"
+          },
+          "application_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Method"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "positions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positions"
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "opening_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opening Date"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "original_url": {
+            "type": "string",
+            "title": "Original Url"
+          },
+          "application_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Url"
+          },
+          "supporting_documents": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Supporting Documents"
+          },
+          "lifecycle_status": {
+            "type": "string",
+            "title": "Lifecycle Status"
+          },
+          "expiry_status": {
+            "type": "string",
+            "title": "Expiry Status"
+          },
+          "tender_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenderDetailOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "BECCI provides this information for discovery and awareness. Opportunities are published by their respective issuing organisations. Please review the original notification and verify eligibility, dates and requirements before applying. BECCI does not guarantee selection, funding, approval or employment."
+          },
+          "external_key": {
+            "type": "string",
+            "title": "External Key"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence"
+          },
+          "confidence_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Confidence Reasons"
+          },
+          "verification_status": {
+            "type": "string",
+            "title": "Verification Status"
+          },
+          "first_discovered_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Discovered At"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Updated At"
+          },
+          "raw_title": {
+            "type": "string",
+            "title": "Raw Title"
+          },
+          "raw_text": {
+            "type": "string",
+            "title": "Raw Text"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceOut"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "verification_records": {
+            "items": {
+              "$ref": "#/components/schemas/VerificationRecordOut"
+            },
+            "type": "array",
+            "title": "Verification Records"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "description",
+          "category",
+          "subcategory",
+          "issuing_organisation",
+          "publisher",
+          "source_type",
+          "country",
+          "state",
+          "city",
+          "location_type",
+          "industry",
+          "qualification",
+          "experience",
+          "eligibility",
+          "benefits",
+          "financial_details",
+          "application_method",
+          "reference_number",
+          "positions",
+          "published_date",
+          "opening_date",
+          "deadline",
+          "event_date",
+          "verified_at",
+          "original_url",
+          "application_url",
+          "lifecycle_status",
+          "expiry_status",
+          "external_key",
+          "agent_id",
+          "source_id",
+          "confidence",
+          "confidence_reasons",
+          "verification_status",
+          "first_discovered_at",
+          "last_checked_at",
+          "last_updated_at",
+          "raw_title",
+          "raw_text",
+          "evidence"
+        ],
+        "title": "AdminOpportunityDetailOut"
+      },
+      "AdminOpportunityReviewRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "approve | reject | publish | unpublish | mark_expired"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "eligibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligibility"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "AdminOpportunityReviewRequest"
+      },
+      "AdminTokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "role",
+          "username"
+        ],
+        "title": "AdminTokenResponse"
+      },
+      "BusinessProfileIn": {
+        "properties": {
+          "business_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 2,
+            "title": "Business Name"
+          },
+          "business_type": {
+            "type": "string",
+            "title": "Business Type",
+            "description": "manufacturer | trader_distributor | service_provider | contractor | startup | individual_entrepreneur | cooperative_shg | ngo_social_enterprise | other"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "becci_sector": {
+            "type": "string",
+            "title": "Becci Sector",
+            "description": "One of the 11 BECCI sectors"
+          },
+          "secondary_sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Secondary Sectors"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "State"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "business_stage": {
+            "type": "string",
+            "title": "Business Stage",
+            "default": "micro"
+          },
+          "msme_udyam_status": {
+            "type": "string",
+            "title": "Msme Udyam Status",
+            "description": "registered | applied | not_registered | not_applicable | unknown",
+            "default": "unknown"
+          },
+          "gst_status": {
+            "type": "string",
+            "title": "Gst Status",
+            "description": "registered | exempt | not_registered | unknown",
+            "default": "unknown"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type",
+            "default": "sole_proprietorship"
+          },
+          "annual_turnover_lakhs": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Turnover Lakhs"
+          },
+          "years_of_experience": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Years Of Experience"
+          },
+          "licences_and_registrations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Licences And Registrations"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "products_and_services": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Products And Services"
+          },
+          "preferred_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Preferred Categories"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_name",
+          "business_type",
+          "becci_sector",
+          "state"
+        ],
+        "title": "BusinessProfileIn"
+      },
+      "BusinessProfileOut": {
+        "properties": {
+          "business_name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 2,
+            "title": "Business Name"
+          },
+          "business_type": {
+            "type": "string",
+            "title": "Business Type",
+            "description": "manufacturer | trader_distributor | service_provider | contractor | startup | individual_entrepreneur | cooperative_shg | ngo_social_enterprise | other"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "becci_sector": {
+            "type": "string",
+            "title": "Becci Sector",
+            "description": "One of the 11 BECCI sectors"
+          },
+          "secondary_sectors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Secondary Sectors"
+          },
+          "state": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "State"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "District"
+          },
+          "business_stage": {
+            "type": "string",
+            "title": "Business Stage",
+            "default": "micro"
+          },
+          "msme_udyam_status": {
+            "type": "string",
+            "title": "Msme Udyam Status",
+            "description": "registered | applied | not_registered | not_applicable | unknown",
+            "default": "unknown"
+          },
+          "gst_status": {
+            "type": "string",
+            "title": "Gst Status",
+            "description": "registered | exempt | not_registered | unknown",
+            "default": "unknown"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type",
+            "default": "sole_proprietorship"
+          },
+          "annual_turnover_lakhs": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Turnover Lakhs"
+          },
+          "years_of_experience": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Years Of Experience"
+          },
+          "licences_and_registrations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Licences And Registrations"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "products_and_services": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Products And Services"
+          },
+          "preferred_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Preferred Categories"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "member_id": {
+            "type": "string",
+            "title": "Member Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_name",
+          "business_type",
+          "becci_sector",
+          "state",
+          "id",
+          "member_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BusinessProfileOut"
+      },
+      "CategoryCount": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "count"
+        ],
+        "title": "CategoryCount"
+      },
+      "EligibilityExplanationOut": {
+        "properties": {
+          "eligibility_status": {
+            "type": "string",
+            "title": "Eligibility Status"
+          },
+          "why_it_matches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Why It Matches"
+          },
+          "satisfied_conditions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Satisfied Conditions"
+          },
+          "missing_requirements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Requirements"
+          },
+          "details_to_confirm": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Details To Confirm"
+          },
+          "required_documents": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Documents"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eligibility_status",
+          "why_it_matches",
+          "satisfied_conditions",
+          "missing_requirements",
+          "details_to_confirm",
+          "required_documents",
+          "disclaimer"
+        ],
+        "title": "EligibilityExplanationOut"
+      },
+      "EvidenceOut": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "snippet": {
+            "type": "string",
+            "title": "Snippet"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "found_in_source": {
+            "type": "boolean",
+            "title": "Found In Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "value",
+          "snippet",
+          "source_url",
+          "found_in_source"
+        ],
+        "title": "EvidenceOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IncompleteEligibilityOut": {
+        "properties": {
+          "opportunity": {
+            "$ref": "#/components/schemas/PublicOpportunityOut"
+          },
+          "incomplete_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Incomplete Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opportunity",
+          "incomplete_reasons"
+        ],
+        "title": "IncompleteEligibilityOut"
+      },
+      "LocationCount": {
+        "properties": {
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "count"
+        ],
+        "title": "LocationCount"
+      },
+      "MatchFeedbackIn": {
+        "properties": {
+          "business_profile_id": {
+            "type": "string",
+            "title": "Business Profile Id"
+          },
+          "opportunity_id": {
+            "type": "string",
+            "title": "Opportunity Id"
+          },
+          "flag_type": {
+            "type": "string",
+            "title": "Flag Type",
+            "description": "false_positive | confirmed_good | incomplete_eligibility"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "business_profile_id",
+          "opportunity_id",
+          "flag_type",
+          "reason"
+        ],
+        "title": "MatchFeedbackIn"
+      },
+      "MatchFeedbackOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "business_profile_id": {
+            "type": "string",
+            "title": "Business Profile Id"
+          },
+          "opportunity_id": {
+            "type": "string",
+            "title": "Opportunity Id"
+          },
+          "flag_type": {
+            "type": "string",
+            "title": "Flag Type"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "business_profile_id",
+          "opportunity_id",
+          "flag_type",
+          "reason",
+          "actor",
+          "created_at"
+        ],
+        "title": "MatchFeedbackOut"
+      },
+      "MatchingConfigOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "sector_weight": {
+            "type": "number",
+            "title": "Sector Weight"
+          },
+          "geography_weight": {
+            "type": "number",
+            "title": "Geography Weight"
+          },
+          "eligibility_weight": {
+            "type": "number",
+            "title": "Eligibility Weight"
+          },
+          "deadline_urgency_weight": {
+            "type": "number",
+            "title": "Deadline Urgency Weight"
+          },
+          "category_preference_weight": {
+            "type": "number",
+            "title": "Category Preference Weight"
+          },
+          "verification_weight": {
+            "type": "number",
+            "title": "Verification Weight"
+          },
+          "min_score_threshold": {
+            "type": "number",
+            "title": "Min Score Threshold"
+          },
+          "exclude_expired": {
+            "type": "boolean",
+            "title": "Exclude Expired"
+          },
+          "updated_by": {
+            "type": "string",
+            "title": "Updated By"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sector_weight",
+          "geography_weight",
+          "eligibility_weight",
+          "deadline_urgency_weight",
+          "category_preference_weight",
+          "verification_weight",
+          "min_score_threshold",
+          "exclude_expired",
+          "updated_by",
+          "updated_at"
+        ],
+        "title": "MatchingConfigOut"
+      },
+      "MatchingConfigUpdate": {
+        "properties": {
+          "sector_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sector Weight"
+          },
+          "geography_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geography Weight"
+          },
+          "eligibility_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligibility Weight"
+          },
+          "deadline_urgency_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline Urgency Weight"
+          },
+          "category_preference_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Preference Weight"
+          },
+          "verification_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Weight"
+          },
+          "min_score_threshold": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Score Threshold"
+          },
+          "exclude_expired": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exclude Expired"
+          }
+        },
+        "type": "object",
+        "title": "MatchingConfigUpdate"
+      },
+      "MemberLoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "MemberLoginRequest"
+      },
+      "MemberRegisterRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 5,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 2,
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "display_name"
+        ],
+        "title": "MemberRegisterRequest"
+      },
+      "MemberTokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "member_id": {
+            "type": "string",
+            "title": "Member Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "member_id",
+          "email",
+          "display_name"
+        ],
+        "title": "MemberTokenResponse"
+      },
+      "OpportunityMatchOut": {
+        "properties": {
+          "opportunity": {
+            "$ref": "#/components/schemas/PublicOpportunityOut"
+          },
+          "relevance_score": {
+            "type": "number",
+            "title": "Relevance Score"
+          },
+          "is_active_recommendation": {
+            "type": "boolean",
+            "title": "Is Active Recommendation"
+          },
+          "eligibility": {
+            "$ref": "#/components/schemas/EligibilityExplanationOut"
+          },
+          "score_breakdown": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Score Breakdown"
+          },
+          "ranking_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ranking Reasons"
+          },
+          "is_saved": {
+            "type": "boolean",
+            "title": "Is Saved",
+            "default": false
+          },
+          "is_viewed": {
+            "type": "boolean",
+            "title": "Is Viewed",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "opportunity",
+          "relevance_score",
+          "is_active_recommendation",
+          "eligibility",
+          "score_breakdown",
+          "ranking_reasons"
+        ],
+        "title": "OpportunityMatchOut"
+      },
+      "PublicOpportunityListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicOpportunityOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit",
+          "has_more"
+        ],
+        "title": "PublicOpportunityListResponse"
+      },
+      "PublicOpportunityOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "subcategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategory"
+          },
+          "issuing_organisation": {
+            "type": "string",
+            "title": "Issuing Organisation"
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher"
+          },
+          "source_type": {
+            "type": "string",
+            "title": "Source Type"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "location_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Type"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry"
+          },
+          "qualification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualification"
+          },
+          "experience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experience"
+          },
+          "eligibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eligibility"
+          },
+          "benefits": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benefits"
+          },
+          "financial_details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Financial Details"
+          },
+          "application_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Method"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "positions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positions"
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "opening_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opening Date"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "original_url": {
+            "type": "string",
+            "title": "Original Url"
+          },
+          "application_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Url"
+          },
+          "supporting_documents": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Supporting Documents"
+          },
+          "lifecycle_status": {
+            "type": "string",
+            "title": "Lifecycle Status"
+          },
+          "expiry_status": {
+            "type": "string",
+            "title": "Expiry Status"
+          },
+          "tender_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TenderDetailOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "BECCI provides this information for discovery and awareness. Opportunities are published by their respective issuing organisations. Please review the original notification and verify eligibility, dates and requirements before applying. BECCI does not guarantee selection, funding, approval or employment."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "description",
+          "category",
+          "subcategory",
+          "issuing_organisation",
+          "publisher",
+          "source_type",
+          "country",
+          "state",
+          "city",
+          "location_type",
+          "industry",
+          "qualification",
+          "experience",
+          "eligibility",
+          "benefits",
+          "financial_details",
+          "application_method",
+          "reference_number",
+          "positions",
+          "published_date",
+          "opening_date",
+          "deadline",
+          "event_date",
+          "verified_at",
+          "original_url",
+          "application_url",
+          "lifecycle_status",
+          "expiry_status"
+        ],
+        "title": "PublicOpportunityOut"
+      },
+      "PublicSourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "reliability": {
+            "type": "string",
+            "title": "Reliability"
+          },
+          "geographic_coverage": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Geographic Coverage"
+          },
+          "issuing_organisation": {
+            "type": "string",
+            "title": "Issuing Organisation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "domain",
+          "reliability",
+          "geographic_coverage",
+          "issuing_organisation"
+        ],
+        "title": "PublicSourceOut"
+      },
+      "RecommendationListResponse": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "title": "Profile Id"
+          },
+          "business_name": {
+            "type": "string",
+            "title": "Business Name"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OpportunityMatchOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "business_name",
+          "items",
+          "total",
+          "page",
+          "limit",
+          "has_more"
+        ],
+        "title": "RecommendationListResponse"
+      },
+      "SaveOpportunityRequest": {
+        "properties": {
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "title": "SaveOpportunityRequest"
+      },
+      "SavedOpportunityOut": {
+        "properties": {
+          "opportunity_id": {
+            "type": "string",
+            "title": "Opportunity Id"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "saved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Saved At"
+          },
+          "opportunity": {
+            "$ref": "#/components/schemas/PublicOpportunityOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opportunity_id",
+          "notes",
+          "saved_at",
+          "opportunity"
+        ],
+        "title": "SavedOpportunityOut"
+      },
+      "ScanRunOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "trigger": {
+            "type": "string",
+            "title": "Trigger"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "items_seen": {
+            "type": "integer",
+            "title": "Items Seen"
+          },
+          "items_new": {
+            "type": "integer",
+            "title": "Items New"
+          },
+          "items_updated": {
+            "type": "integer",
+            "title": "Items Updated"
+          },
+          "items_unchanged": {
+            "type": "integer",
+            "title": "Items Unchanged"
+          },
+          "duplicates_detected": {
+            "type": "integer",
+            "title": "Duplicates Detected"
+          },
+          "items_skipped": {
+            "type": "integer",
+            "title": "Items Skipped"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "log": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Log"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "agent_id",
+          "trigger",
+          "status",
+          "started_at",
+          "finished_at",
+          "duration_seconds",
+          "items_seen",
+          "items_new",
+          "items_updated",
+          "items_unchanged",
+          "duplicates_detected",
+          "items_skipped",
+          "error",
+          "log"
+        ],
+        "title": "ScanRunOut"
+      },
+      "SourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "parser": {
+            "type": "string",
+            "title": "Parser"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "geographic_coverage": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Geographic Coverage"
+          },
+          "industry_relevance": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Industry Relevance"
+          },
+          "collection_method": {
+            "type": "string",
+            "title": "Collection Method"
+          },
+          "reliability": {
+            "type": "string",
+            "title": "Reliability"
+          },
+          "support_status": {
+            "type": "string",
+            "title": "Support Status"
+          },
+          "access_notes": {
+            "type": "string",
+            "title": "Access Notes",
+            "default": ""
+          },
+          "issuing_organisation": {
+            "type": "string",
+            "title": "Issuing Organisation"
+          },
+          "scan_frequency_minutes": {
+            "type": "integer",
+            "title": "Scan Frequency Minutes"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "last_scan_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Scan At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure At"
+          },
+          "last_failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure Reason"
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "title": "Consecutive Failures"
+          },
+          "next_scan_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Scan At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "domain",
+          "url",
+          "agent_id",
+          "parser",
+          "categories",
+          "geographic_coverage",
+          "industry_relevance",
+          "collection_method",
+          "reliability",
+          "support_status",
+          "issuing_organisation",
+          "scan_frequency_minutes",
+          "active",
+          "last_scan_at",
+          "last_success_at",
+          "last_failure_at",
+          "consecutive_failures"
+        ],
+        "title": "SourceOut"
+      },
+      "SystemMetricsOut": {
+        "properties": {
+          "total_sources": {
+            "type": "integer",
+            "title": "Total Sources"
+          },
+          "active_sources": {
+            "type": "integer",
+            "title": "Active Sources"
+          },
+          "supported_sources": {
+            "type": "integer",
+            "title": "Supported Sources"
+          },
+          "unsupported_sources": {
+            "type": "integer",
+            "title": "Unsupported Sources"
+          },
+          "total_scans": {
+            "type": "integer",
+            "title": "Total Scans"
+          },
+          "successful_scans": {
+            "type": "integer",
+            "title": "Successful Scans"
+          },
+          "failed_scans": {
+            "type": "integer",
+            "title": "Failed Scans"
+          },
+          "total_opportunities": {
+            "type": "integer",
+            "title": "Total Opportunities"
+          },
+          "published_opportunities": {
+            "type": "integer",
+            "title": "Published Opportunities"
+          },
+          "pending_review_opportunities": {
+            "type": "integer",
+            "title": "Pending Review Opportunities"
+          },
+          "expired_opportunities": {
+            "type": "integer",
+            "title": "Expired Opportunities"
+          },
+          "duplicates_merged": {
+            "type": "integer",
+            "title": "Duplicates Merged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_sources",
+          "active_sources",
+          "supported_sources",
+          "unsupported_sources",
+          "total_scans",
+          "successful_scans",
+          "failed_scans",
+          "total_opportunities",
+          "published_opportunities",
+          "pending_review_opportunities",
+          "expired_opportunities",
+          "duplicates_merged"
+        ],
+        "title": "SystemMetricsOut"
+      },
+      "TenderDetailOut": {
+        "properties": {
+          "tender_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tender Id"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "issuing_authority": {
+            "type": "string",
+            "title": "Issuing Authority"
+          },
+          "department": {
+            "type": "string",
+            "title": "Department"
+          },
+          "tender_category": {
+            "type": "string",
+            "title": "Tender Category"
+          },
+          "product_category": {
+            "type": "string",
+            "title": "Product Category"
+          },
+          "sector": {
+            "type": "string",
+            "title": "Sector"
+          },
+          "estimated_value": {
+            "type": "string",
+            "title": "Estimated Value"
+          },
+          "emd_amount": {
+            "type": "string",
+            "title": "Emd Amount"
+          },
+          "tender_fee": {
+            "type": "string",
+            "title": "Tender Fee"
+          },
+          "document_download_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Download Date"
+          },
+          "pre_bid_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pre Bid Date"
+          },
+          "pre_bid_details": {
+            "type": "string",
+            "title": "Pre Bid Details"
+          },
+          "bid_opening_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bid Opening Date"
+          },
+          "turnover_requirement": {
+            "type": "string",
+            "title": "Turnover Requirement"
+          },
+          "experience_requirement": {
+            "type": "string",
+            "title": "Experience Requirement"
+          },
+          "required_registrations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Registrations"
+          },
+          "msme_preference": {
+            "type": "string",
+            "title": "Msme Preference"
+          },
+          "eligibility_intelligence": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Eligibility Intelligence"
+          },
+          "tender_status": {
+            "type": "string",
+            "title": "Tender Status"
+          },
+          "corrigendum_history": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Corrigendum History"
+          },
+          "cancellation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tender_id",
+          "reference_number",
+          "issuing_authority",
+          "department",
+          "tender_category",
+          "product_category",
+          "sector",
+          "estimated_value",
+          "emd_amount",
+          "tender_fee",
+          "document_download_date",
+          "pre_bid_date",
+          "pre_bid_details",
+          "bid_opening_date",
+          "turnover_requirement",
+          "experience_requirement",
+          "msme_preference",
+          "tender_status",
+          "cancellation_reason"
+        ],
+        "title": "TenderDetailOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerificationRecordOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "checks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "requires_human_review": {
+            "type": "boolean",
+            "title": "Requires Human Review"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "checks",
+          "requires_human_review",
+          "notes",
+          "created_at"
+        ],
+        "title": "VerificationRecordOut"
+      },
+      "ViewedOpportunityOut": {
+        "properties": {
+          "opportunity_id": {
+            "type": "string",
+            "title": "Opportunity Id"
+          },
+          "view_count": {
+            "type": "integer",
+            "title": "View Count"
+          },
+          "first_viewed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Viewed At"
+          },
+          "last_viewed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Viewed At"
+          },
+          "opportunity": {
+            "$ref": "#/components/schemas/PublicOpportunityOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opportunity_id",
+          "view_count",
+          "first_viewed_at",
+          "last_viewed_at",
+          "opportunity"
+        ],
+        "title": "ViewedOpportunityOut"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
