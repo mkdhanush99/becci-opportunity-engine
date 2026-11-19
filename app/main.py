@@ -48,6 +48,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from pathlib import Path
+from fastapi.responses import FileResponse
+
 # Mount routes
 app.include_router(public_router)
 app.include_router(admin_router)
+
+# Mount Web Portal Preview UI
+STATIC_INDEX = Path(__file__).parent / "static" / "index.html"
+
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+async def serve_preview_portal():
+    return FileResponse(STATIC_INDEX)
+
+@app.api_route("/admin", methods=["GET", "HEAD"], include_in_schema=False)
+async def serve_admin_portal():
+    return FileResponse(STATIC_INDEX)
