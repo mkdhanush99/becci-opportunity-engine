@@ -16,7 +16,14 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(default="CHANGE-ME-dev-only-secret", min_length=16)
     admin_token_ttl_minutes: int = 60 * 8
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://preview.becci.in",
+        "https://becci.in",
+        "https://www.becci.in",
+    ]
     public_rate_limit_per_minute: int = 120
     admin_rate_limit_per_minute: int = 300
     login_rate_limit_per_minute: int = 10

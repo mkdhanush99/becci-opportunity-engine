@@ -7,7 +7,19 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.enums import LifecycleStatus, PUBLIC_STATUSES
+from app.enums import (
+    BECCISector,
+    BusinessStage,
+    BusinessType,
+    Category,
+    EligibilityMatchStatus,
+    EntityType,
+    GSTStatus,
+    LifecycleStatus,
+    PUBLIC_STATUSES,
+    RegistrationStatus,
+    TenderStatus,
+)
 from app.models import Opportunity, Source, TenderDetail
 from app.schemas import (
     CategoryCount,
@@ -27,6 +39,37 @@ def health_check(session: Session = Depends(get_db)):
         "service": "BECCI Opportunity Intelligence Engine",
         "version": "3.0.0",
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+
+
+@router.get("/metadata", summary="Supported public filter & onboarding metadata")
+def get_public_metadata(session: Session = Depends(get_db)):
+    states = sorted(
+        {
+            r
+            for r in session.scalars(
+                select(Opportunity.state)
+                .where(
+                    Opportunity.lifecycle_status.in_(PUBLIC_STATUSES),
+                    Opportunity.is_fixture.is_(False),
+                    Opportunity.state.is_not(None),
+                )
+                .distinct()
+            ).all()
+            if r
+        }
+    )
+    return {
+        "categories": [c.value for c in Category],
+        "sectors": [s.value for s in BECCISector],
+        "states": ["National"] + states,
+        "tender_statuses": [t.value for t in TenderStatus],
+        "business_types": [b.value for b in BusinessType],
+        "business_stages": [s.value for s in BusinessStage],
+        "registration_statuses": [r.value for r in RegistrationStatus],
+        "gst_statuses": [g.value for g in GSTStatus],
+        "entity_types": [e.value for e in EntityType],
+        "eligibility_statuses": [e.value for e in EligibilityMatchStatus],
     }
 
 
