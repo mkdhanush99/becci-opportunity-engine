@@ -96,7 +96,16 @@ def handle_deduplication_and_changes(
         if existing.deadline != new_opp.deadline:
             changed_fields.append("deadline")
             existing.deadline = new_opp.deadline
-            existing.expiry_status = new_opp.expiry_status
+            if new_opp.expiry_status:
+                existing.expiry_status = new_opp.expiry_status
+            elif existing.deadline:
+                today = dt.date.today()
+                if existing.deadline < today:
+                    existing.expiry_status = "expired"
+                elif (existing.deadline - today).days <= 7:
+                    existing.expiry_status = "closing_soon"
+                else:
+                    existing.expiry_status = "active"
             significant = True
 
         # Check reference number changes
@@ -132,7 +141,7 @@ def handle_deduplication_and_changes(
                 actor=actor,
                 created_at=now,
             )
-            session.add(ver)
+            existing.versions.append(ver)
             return "updated", existing
 
         return "unchanged", existing

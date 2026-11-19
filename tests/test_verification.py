@@ -1,13 +1,8 @@
 import datetime as dt
-from app.db import Base, get_engine, session_scope
+from app.db import session_scope
 from app.enums import LifecycleStatus, SourceReliability, VerificationStatus
 from app.models import Opportunity, Source, utcnow
 from app.pipeline.verification import verify_opportunity
-
-
-def setup_module():
-    engine = get_engine()
-    Base.metadata.create_all(bind=engine)
 
 
 def test_verify_opportunity_domain_and_evidence():

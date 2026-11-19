@@ -58,6 +58,7 @@ def slugify(s: str, max_len: int = 120) -> str:
 
 
 # ----------------------------------------------------------------------------- dates
+_DATE_ISO = re.compile(r"^\s*(\d{4})[./-](\d{1,2})[./-](\d{1,2})")
 _DATE_NUM = r"(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})"
 _DATE_TXT = r"(\d{1,2})(?:st|nd|rd|th)?[\s.-]*(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s.,-]*(\d{4})"
 _DATE_TXT_US = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s.]+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})"
@@ -65,9 +66,18 @@ DATE_ANY = re.compile(f"{_DATE_NUM}|{_DATE_TXT}|{_DATE_TXT_US}", re.I)
 
 
 def parse_date(s: str) -> dt.date | None:
-    """Parse Indian-style dates (day first). Returns None if ambiguous/invalid."""
+    """Parse Indian-style dates (day first) or ISO dates (year first). Returns None if ambiguous/invalid."""
     if not s:
         return None
+    # 1. Check ISO format (YYYY-MM-DD or YYYY/MM/DD)
+    m_iso = _DATE_ISO.match(s)
+    if m_iso:
+        try:
+            return dt.date(int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3)))
+        except ValueError:
+            return None
+
+    # 2. Check general date patterns (day first for Indian portals)
     m = DATE_ANY.search(s)
     if not m:
         return None

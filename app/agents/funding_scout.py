@@ -43,7 +43,10 @@ def nbcfdc_schemes(source: Source, ctx: ScanContext) -> list[ExtractedItem]:
         try:
             page_res = ctx.http.get(scheme_url)
             page_soup = soup_of(page_res.text)
-            title_node = page_soup.find(["h1", "h2", "h3", "h4"])
+            content_area = page_soup.find("div", class_="region-content") or page_soup.find("article") or page_soup
+            title_node = content_area.find(
+                lambda tag: tag.name in ["h1", "h2", "h3", "h4"] and "visually-hidden" not in tag.get("class", [])
+            )
             title = clean_text(title_node.get_text(" ", strip=True)) if title_node else "NBCFDC Loan Scheme"
             body_text = clean_text(page_soup.get_text(" ", strip=True))
             ctx.capture(scheme_url, page_res.final_url, "http", page_res.status, body_text[:200000])
