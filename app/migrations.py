@@ -60,6 +60,119 @@ MIGRATIONS: list[dict] = [
             "DROP TABLE IF EXISTS tender_details",
         ],
     },
+    {
+        "version": "003_phase3_business_profiles_and_matching",
+        "description": "Create private member accounts, business profiles, saved/viewed tracking, and matching config tables for Phase 3",
+        "up_sql": [
+            """
+            CREATE TABLE IF NOT EXISTS member_accounts (
+                id VARCHAR(32) NOT NULL PRIMARY KEY,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                display_name VARCHAR(128) NOT NULL,
+                active BOOLEAN NOT NULL DEFAULT 1,
+                token_version INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL,
+                last_login_at DATETIME
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_member_accounts_email ON member_accounts (email)",
+            """
+            CREATE TABLE IF NOT EXISTS business_profiles (
+                id VARCHAR(32) NOT NULL PRIMARY KEY,
+                member_id VARCHAR(32) NOT NULL UNIQUE,
+                business_name VARCHAR(255) NOT NULL,
+                business_type VARCHAR(48) NOT NULL,
+                industry VARCHAR(128),
+                becci_sector VARCHAR(64) NOT NULL,
+                secondary_sectors JSON NOT NULL DEFAULT '[]',
+                state VARCHAR(64) NOT NULL,
+                district VARCHAR(128),
+                business_stage VARCHAR(32) NOT NULL DEFAULT 'micro',
+                msme_udyam_status VARCHAR(32) NOT NULL DEFAULT 'unknown',
+                gst_status VARCHAR(32) NOT NULL DEFAULT 'unknown',
+                entity_type VARCHAR(48) NOT NULL DEFAULT 'sole_proprietorship',
+                annual_turnover_lakhs FLOAT,
+                years_of_experience FLOAT,
+                licences_and_registrations JSON NOT NULL DEFAULT '[]',
+                capabilities JSON NOT NULL DEFAULT '[]',
+                products_and_services JSON NOT NULL DEFAULT '[]',
+                preferred_categories JSON NOT NULL DEFAULT '["tender", "funding", "job"]',
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES member_accounts (id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_business_profiles_member_id ON business_profiles (member_id)",
+            "CREATE INDEX IF NOT EXISTS ix_business_profiles_becci_sector ON business_profiles (becci_sector)",
+            "CREATE INDEX IF NOT EXISTS ix_business_profiles_state ON business_profiles (state)",
+            """
+            CREATE TABLE IF NOT EXISTS saved_opportunities (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                member_id VARCHAR(32) NOT NULL,
+                opportunity_id VARCHAR(32) NOT NULL,
+                notes TEXT,
+                created_at DATETIME NOT NULL,
+                CONSTRAINT uq_saved_member_opp UNIQUE (member_id, opportunity_id),
+                FOREIGN KEY(member_id) REFERENCES member_accounts (id) ON DELETE CASCADE,
+                FOREIGN KEY(opportunity_id) REFERENCES opportunities (id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_saved_opportunities_member_id ON saved_opportunities (member_id)",
+            """
+            CREATE TABLE IF NOT EXISTS opportunity_views (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                member_id VARCHAR(32) NOT NULL,
+                opportunity_id VARCHAR(32) NOT NULL,
+                view_count INTEGER NOT NULL DEFAULT 1,
+                first_viewed_at DATETIME NOT NULL,
+                last_viewed_at DATETIME NOT NULL,
+                CONSTRAINT uq_viewed_member_opp UNIQUE (member_id, opportunity_id),
+                FOREIGN KEY(member_id) REFERENCES member_accounts (id) ON DELETE CASCADE,
+                FOREIGN KEY(opportunity_id) REFERENCES opportunities (id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_opportunity_views_member_id ON opportunity_views (member_id)",
+            """
+            CREATE TABLE IF NOT EXISTS matching_configs (
+                id VARCHAR(32) NOT NULL PRIMARY KEY,
+                sector_weight FLOAT NOT NULL DEFAULT 30.0,
+                geography_weight FLOAT NOT NULL DEFAULT 20.0,
+                eligibility_weight FLOAT NOT NULL DEFAULT 25.0,
+                deadline_urgency_weight FLOAT NOT NULL DEFAULT 10.0,
+                category_preference_weight FLOAT NOT NULL DEFAULT 10.0,
+                verification_weight FLOAT NOT NULL DEFAULT 5.0,
+                min_score_threshold FLOAT NOT NULL DEFAULT 20.0,
+                exclude_expired BOOLEAN NOT NULL DEFAULT 1,
+                updated_by VARCHAR(64) NOT NULL DEFAULT 'system',
+                updated_at DATETIME NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS match_feedback (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                business_profile_id VARCHAR(32) NOT NULL,
+                opportunity_id VARCHAR(32) NOT NULL,
+                flag_type VARCHAR(32) NOT NULL,
+                reason TEXT NOT NULL,
+                actor VARCHAR(64) NOT NULL,
+                created_at DATETIME NOT NULL,
+                FOREIGN KEY(business_profile_id) REFERENCES business_profiles (id) ON DELETE CASCADE,
+                FOREIGN KEY(opportunity_id) REFERENCES opportunities (id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_match_feedback_profile_id ON match_feedback (business_profile_id)",
+            "CREATE INDEX IF NOT EXISTS ix_match_feedback_flag_type ON match_feedback (flag_type)",
+        ],
+        "down_sql": [
+            "DROP TABLE IF EXISTS match_feedback",
+            "DROP TABLE IF EXISTS matching_configs",
+            "DROP TABLE IF EXISTS opportunity_views",
+            "DROP TABLE IF EXISTS saved_opportunities",
+            "DROP TABLE IF EXISTS business_profiles",
+            "DROP TABLE IF EXISTS member_accounts",
+        ],
+    },
 ]
 
 

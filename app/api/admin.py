@@ -8,8 +8,24 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.enums import AdminRole, LifecycleStatus
-from app.models import AdminUser, Opportunity, ScanRun, Source, TenderDetail, VerificationRecord
+from app.enums import AdminRole, LifecycleStatus, MatchFeedbackType
+from app.matching.engine import (
+    get_or_create_matching_config,
+    is_incomplete_eligibility,
+    rank_opportunities_for_profile,
+)
+from app.models import (
+    AdminUser,
+    AuditLog,
+    BusinessProfile,
+    MatchFeedback,
+    Opportunity,
+    ScanRun,
+    Source,
+    TenderDetail,
+    VerificationRecord,
+    utcnow,
+)
 from app.orchestrator.service import Orchestrator, SourceLockedError
 from app.pipeline.lifecycle import transition_lifecycle
 from app.schemas import (
@@ -17,6 +33,14 @@ from app.schemas import (
     AdminOpportunityDetailOut,
     AdminOpportunityReviewRequest,
     AdminTokenResponse,
+    BusinessProfileOut,
+    EligibilityExplanationOut,
+    IncompleteEligibilityOut,
+    MatchFeedbackIn,
+    MatchFeedbackOut,
+    MatchingConfigOut,
+    MatchingConfigUpdate,
+    OpportunityMatchOut,
     PublicOpportunityOut,
     ScanRunOut,
     SourceOut,
@@ -297,3 +321,174 @@ def get_metrics(
         expired_opportunities=exp_opps,
         duplicates_merged=int(dups),
     )
+
+
+# --------------------------------------------------------------------------- Phase 3: Admin Matching Controls & Audit
+@router.get("/matching/config", response_model=MatchingConfigOut, summary="Review current matching rules and scoring weights")
+def get_matching_config(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    cfg = get_or_create_matching_config(session)
+    return MatchingConfigOut.model_validate(cfg)
+
+
+@router.put("/matching/config", response_model=MatchingConfigOut, summary="Configure matching scoring weights")
+def update_matching_config(
+    req: MatchingConfigUpdate,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.ADMIN))],
+    session: Session = Depends(get_db),
+):
+    cfg = get_or_create_matching_config(session)
+    before = MatchingConfigOut.model_validate(cfg).model_dump(mode="json")
+    updates = req.model_dump(exclude_none=True)
+    for k, v in updates.items():
+        setattr(cfg, k, v)
+    cfg.updated_by = current_admin.username
+    cfg.updated_at = utcnow()
+    session.add(
+        AuditLog(
+            actor=current_admin.username,
+            action="matching.config_updated",
+            target_type="matching_config",
+            target_id=cfg.id,
+            detail={"before": before, "updates": updates},
+            created_at=utcnow(),
+        )
+    )
+    session.commit()
+    session.refresh(cfg)
+    return MatchingConfigOut.model_validate(cfg)
+
+
+@router.get("/matching/profiles", response_model=list[BusinessProfileOut], summary="List registered member business profiles for inspection")
+def list_business_profiles(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.REVIEWER))],
+    limit: int = Query(50, ge=1, le=200),
+    session: Session = Depends(get_db),
+):
+    profiles = session.scalars(
+        select(BusinessProfile).order_by(BusinessProfile.updated_at.desc()).limit(limit)
+    ).all()
+    return [BusinessProfileOut.model_validate(p) for p in profiles]
+
+
+@router.get("/matching/inspect/{profile_id}", response_model=list[OpportunityMatchOut], summary="Inspect recommendation explanations for a business profile")
+def inspect_profile_recommendations(
+    profile_id: str,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.REVIEWER))],
+    include_unpublished: bool = Query(False, description="Dry-run preview including unpublished opportunities (does not publish)"),
+    include_expired: bool = Query(False, description="Include expired opportunities for audit inspection"),
+    limit: int = Query(25, ge=1, le=100),
+    session: Session = Depends(get_db),
+):
+    profile = session.get(BusinessProfile, profile_id)
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business profile not found")
+
+    ranked = rank_opportunities_for_profile(
+        session,
+        profile,
+        min_score=0.0,
+        include_unpublished=include_unpublished,
+        include_expired=include_expired,
+    )
+    out: list[OpportunityMatchOut] = []
+    for ev in ranked[:limit]:
+        out.append(
+            OpportunityMatchOut(
+                opportunity=PublicOpportunityOut.model_validate(ev.opportunity),
+                relevance_score=ev.relevance_score,
+                is_active_recommendation=ev.is_active_recommendation,
+                eligibility=EligibilityExplanationOut(
+                    eligibility_status=ev.eligibility_status,
+                    why_it_matches=ev.why_it_matches,
+                    satisfied_conditions=ev.satisfied_conditions,
+                    missing_requirements=ev.missing_requirements,
+                    details_to_confirm=ev.details_to_confirm,
+                    required_documents=ev.required_documents,
+                    disclaimer=ev.disclaimer,
+                ),
+                score_breakdown=ev.score_breakdown,
+                ranking_reasons=ev.ranking_reasons,
+            )
+        )
+    return out
+
+
+@router.post("/matching/feedback", response_model=MatchFeedbackOut, status_code=status.HTTP_201_CREATED, summary="Flag false-positive match or incomplete eligibility")
+def record_match_feedback(
+    req: MatchFeedbackIn,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.REVIEWER))],
+    session: Session = Depends(get_db),
+):
+    if req.flag_type not in {t.value for t in MatchFeedbackType}:
+        raise HTTPException(status_code=422, detail=f"Invalid flag_type '{req.flag_type}'")
+    if not session.get(BusinessProfile, req.business_profile_id):
+        raise HTTPException(status_code=404, detail="Business profile not found")
+    if not session.get(Opportunity, req.opportunity_id):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    fb = MatchFeedback(
+        business_profile_id=req.business_profile_id,
+        opportunity_id=req.opportunity_id,
+        flag_type=req.flag_type,
+        reason=req.reason.strip(),
+        actor=current_admin.username,
+        created_at=utcnow(),
+    )
+    session.add(fb)
+    session.add(
+        AuditLog(
+            actor=current_admin.username,
+            action=f"matching.feedback.{req.flag_type}",
+            target_type="opportunity",
+            target_id=req.opportunity_id,
+            detail={"business_profile_id": req.business_profile_id, "reason": req.reason},
+            created_at=utcnow(),
+        )
+    )
+    session.commit()
+    session.refresh(fb)
+    return MatchFeedbackOut.model_validate(fb)
+
+
+@router.get("/matching/feedback", response_model=list[MatchFeedbackOut], summary="List admin match feedback and false-positive flags")
+def list_match_feedback(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    flag_type: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    session: Session = Depends(get_db),
+):
+    stmt = select(MatchFeedback)
+    if flag_type:
+        stmt = stmt.where(MatchFeedback.flag_type == flag_type)
+    rows = session.scalars(stmt.order_by(MatchFeedback.created_at.desc()).limit(limit)).all()
+    return [MatchFeedbackOut.model_validate(r) for r in rows]
+
+
+@router.get("/matching/incomplete-eligibility", response_model=list[IncompleteEligibilityOut], summary="Review opportunities with incomplete or ambiguous eligibility criteria")
+def list_incomplete_eligibility_opportunities(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.REVIEWER))],
+    category: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    session: Session = Depends(get_db),
+):
+    stmt = select(Opportunity).where(Opportunity.is_fixture.is_(False))
+    if category:
+        stmt = stmt.where(Opportunity.category == category)
+    opps = session.scalars(stmt.order_by(Opportunity.extracted_at.desc()).limit(200)).all()
+    out: list[IncompleteEligibilityOut] = []
+    for opp in opps:
+        inc, reasons = is_incomplete_eligibility(opp)
+        if inc:
+            out.append(
+                IncompleteEligibilityOut(
+                    opportunity=PublicOpportunityOut.model_validate(opp),
+                    incomplete_reasons=reasons,
+                )
+            )
+            if len(out) >= limit:
+                break
+    return out
+

@@ -6,9 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.admin import router as admin_router
+from app.api.member import router as member_router
 from app.api.public import router as public_router
 from app.config import get_settings
 from app.db import Base, get_engine, session_scope
+from app.matching.engine import get_or_create_matching_config
 from app.migrations import run_migrations
 from app.security.auth import seed_admin_user
 from app.seeds.sources import seed_sources
@@ -20,10 +22,11 @@ async def lifespan(app: FastAPI):
     engine = get_engine()
     run_migrations(engine)
 
-    # Seed default sources and initial admin user
+    # Seed default sources, matching config, and initial admin user
     with session_scope() as session:
         seed_sources(session)
         seed_admin_user(session, username="admin", password="BecciAdmin2026!")
+        get_or_create_matching_config(session)
 
     yield
 
@@ -34,10 +37,10 @@ settings = get_settings()
 app = FastAPI(
     title="BECCI Opportunity Intelligence Engine",
     description=(
-        "Autonomous Browser-Based Research Agents & Opportunity Discovery Platform for "
+        "Autonomous Browser-Based Research Agents, Opportunity Discovery & Personalised Matching Platform for "
         "Bahujan Entrepreneurs Chamber for Commerce & Industry (BECCI)."
     ),
-    version="1.0.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -55,6 +58,7 @@ from fastapi.responses import FileResponse
 
 # Mount routes
 app.include_router(public_router)
+app.include_router(member_router)
 app.include_router(admin_router)
 
 # Mount Web Portal Preview UI

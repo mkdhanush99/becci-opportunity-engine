@@ -25,7 +25,7 @@ def health_check(session: Session = Depends(get_db)):
     return {
         "status": "healthy",
         "service": "BECCI Opportunity Intelligence Engine",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
 

@@ -121,3 +121,66 @@ class TenderStatus(StrEnum):
     UNDER_VERIFICATION = "under_verification"
     EXPIRED = "expired"
 
+
+class BusinessType(StrEnum):
+    MANUFACTURER = "manufacturer"
+    TRADER_DISTRIBUTOR = "trader_distributor"
+    SERVICE_PROVIDER = "service_provider"
+    CONTRACTOR = "contractor"
+    STARTUP = "startup"
+    INDIVIDUAL_ENTREPRENEUR = "individual_entrepreneur"
+    COOPERATIVE_SHG = "cooperative_shg"
+    NGO_SOCIAL_ENTERPRISE = "ngo_social_enterprise"
+    OTHER = "other"
+
+
+class BusinessStage(StrEnum):
+    IDEA_PRE_REVENUE = "idea_pre_revenue"
+    EARLY_STAGE = "early_stage"
+    MICRO = "micro"
+    SMALL = "small"
+    MEDIUM = "medium"
+    ESTABLISHED = "established"
+
+
+class RegistrationStatus(StrEnum):
+    REGISTERED = "registered"
+    APPLIED = "applied"
+    NOT_REGISTERED = "not_registered"
+    NOT_APPLICABLE = "not_applicable"
+    UNKNOWN = "unknown"
+
+
+class GSTStatus(StrEnum):
+    REGISTERED = "registered"
+    EXEMPT = "exempt"
+    NOT_REGISTERED = "not_registered"
+    UNKNOWN = "unknown"
+
+
+class EntityType(StrEnum):
+    UNREGISTERED_INDIVIDUAL = "unregistered_individual"
+    SOLE_PROPRIETORSHIP = "sole_proprietorship"
+    PARTNERSHIP = "partnership"
+    LLP = "llp"
+    PRIVATE_LIMITED = "private_limited"
+    PUBLIC_LIMITED = "public_limited"
+    OPC = "opc"
+    SOCIETY_TRUST_COOPERATIVE = "society_trust_cooperative"
+    OTHER = "other"
+
+
+class EligibilityMatchStatus(StrEnum):
+    LIKELY_MATCH = "likely_match"
+    PARTIAL_MATCH = "partial_match"
+    NOT_ELIGIBLE = "not_eligible"
+    INSUFFICIENT_INFORMATION = "insufficient_information"
+    REQUIRES_MANUAL_REVIEW = "requires_manual_review"
+
+
+class MatchFeedbackType(StrEnum):
+    FALSE_POSITIVE = "false_positive"
+    CONFIRMED_GOOD = "confirmed_good"
+    INCOMPLETE_ELIGIBILITY = "incomplete_eligibility"
+
+

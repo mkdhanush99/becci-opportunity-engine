@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db
 from app.enums import AdminRole, ROLE_RANK
-from app.models import AdminUser, utcnow
+from app.models import AdminUser, MemberAccount, utcnow
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -38,7 +38,7 @@ def generate_token(username: str, role: str, token_version: int) -> str:
 def decode_token(token: str) -> tuple[str, str, int]:
     s = get_settings()
     parts = token.split("|")
-    if len(parts) != 5:
+    if len(parts) != 5 or parts[0] == "member":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token format")
     username, role, ver_str, exp_str, sig = parts
     payload = f"{username}|{role}|{ver_str}|{exp_str}"
@@ -92,3 +92,45 @@ def seed_admin_user(session: Session, username: str = "admin", password: str = "
         session.add(admin)
         session.commit()
     return admin
+
+
+# --------------------------------------------------------------------------- Member Authentication (Isolated from Admin)
+def generate_member_token(member_id: str, token_version: int) -> str:
+    s = get_settings()
+    exp = int(time.time()) + (s.admin_token_ttl_minutes * 60)
+    payload = f"member|{member_id}|{token_version}|{exp}"
+    sig = hmac.new(s.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}|{sig}"
+
+
+def decode_member_token(token: str) -> tuple[str, int]:
+    s = get_settings()
+    parts = token.split("|")
+    if len(parts) != 5 or parts[0] != "member":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid member token format")
+    _, member_id, ver_str, exp_str, sig = parts
+    payload = f"member|{member_id}|{ver_str}|{exp_str}"
+    expected_sig = hmac.new(s.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(sig, expected_sig):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid member token signature")
+    if int(exp_str) < time.time():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Member token expired")
+
+    return member_id, int(ver_str)
+
+
+def get_current_member(
+    creds: Annotated[HTTPAuthorizationCredentials | None, Security(bearer_scheme)],
+    session: Annotated[Session, Depends(get_db)],
+) -> MemberAccount:
+    if not creds:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing member authorization header")
+    member_id, token_ver = decode_member_token(creds.credentials)
+    member = session.get(MemberAccount, member_id)
+    if not member or not member.active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Member account not found or inactive")
+    if member.token_version != token_ver:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Member token has been revoked")
+    return member
+

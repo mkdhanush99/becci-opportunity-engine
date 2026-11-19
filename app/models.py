@@ -328,3 +328,121 @@ class AuditLog(Base):
     target_id: Mapped[str] = mapped_column(String(64), index=True)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, index=True)
+
+
+# --------------------------------------------------------------------------- Phase 3: Member Accounts & Business Profiles
+class MemberAccount(Base):
+    """Private BECCI member identity, strictly isolated from public opportunity data and admin users."""
+    __tablename__ = "member_accounts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    display_name: Mapped[str] = mapped_column(String(128))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+    last_login_at: Mapped[dt.datetime | None] = mapped_column(TZDateTime())
+
+    profile: Mapped[BusinessProfile | None] = relationship(
+        back_populates="member", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class BusinessProfile(Base):
+    """Private BECCI member business profile capturing only attributes needed for opportunity matching."""
+    __tablename__ = "business_profiles"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    member_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("member_accounts.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    business_name: Mapped[str] = mapped_column(String(255))
+    business_type: Mapped[str] = mapped_column(String(48), index=True)
+    industry: Mapped[str | None] = mapped_column(String(128))
+    becci_sector: Mapped[str] = mapped_column(String(64), index=True)
+    secondary_sectors: Mapped[list] = mapped_column(JSON, default=list)
+    state: Mapped[str] = mapped_column(String(64), index=True)
+    district: Mapped[str | None] = mapped_column(String(128))
+    business_stage: Mapped[str] = mapped_column(String(32), default="micro")
+    msme_udyam_status: Mapped[str] = mapped_column(String(32), default="unknown")
+    gst_status: Mapped[str] = mapped_column(String(32), default="unknown")
+    entity_type: Mapped[str] = mapped_column(String(48), default="sole_proprietorship")
+    annual_turnover_lakhs: Mapped[float | None] = mapped_column(Float)
+    years_of_experience: Mapped[float | None] = mapped_column(Float)
+    licences_and_registrations: Mapped[list] = mapped_column(JSON, default=list)
+    capabilities: Mapped[list] = mapped_column(JSON, default=list)
+    products_and_services: Mapped[list] = mapped_column(JSON, default=list)
+    preferred_categories: Mapped[list] = mapped_column(JSON, default=lambda: ["tender", "funding", "job"])
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
+
+    member: Mapped[MemberAccount] = relationship(back_populates="profile")
+
+
+class SavedOpportunity(Base):
+    """Private per-member bookmarked opportunities."""
+    __tablename__ = "saved_opportunities"
+    __table_args__ = (UniqueConstraint("member_id", "opportunity_id", name="uq_saved_member_opp"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    member_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("member_accounts.id", ondelete="CASCADE"), index=True
+    )
+    opportunity_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("opportunities.id", ondelete="CASCADE"), index=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
+
+class OpportunityView(Base):
+    """Private per-member viewed opportunity tracker."""
+    __tablename__ = "opportunity_views"
+    __table_args__ = (UniqueConstraint("member_id", "opportunity_id", name="uq_viewed_member_opp"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    member_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("member_accounts.id", ondelete="CASCADE"), index=True
+    )
+    opportunity_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("opportunities.id", ondelete="CASCADE"), index=True
+    )
+    view_count: Mapped[int] = mapped_column(Integer, default=1)
+    first_viewed_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+    last_viewed_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
+
+class MatchingConfig(Base):
+    """Admin-configurable scoring weights and safety controls for the matching engine."""
+    __tablename__ = "matching_configs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="default")
+    sector_weight: Mapped[float] = mapped_column(Float, default=30.0)
+    geography_weight: Mapped[float] = mapped_column(Float, default=20.0)
+    eligibility_weight: Mapped[float] = mapped_column(Float, default=25.0)
+    deadline_urgency_weight: Mapped[float] = mapped_column(Float, default=10.0)
+    category_preference_weight: Mapped[float] = mapped_column(Float, default=10.0)
+    verification_weight: Mapped[float] = mapped_column(Float, default=5.0)
+    min_score_threshold: Mapped[float] = mapped_column(Float, default=20.0)
+    exclude_expired: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_by: Mapped[str] = mapped_column(String(64), default="system")
+    updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
+
+
+class MatchFeedback(Base):
+    """Admin feedback on recommendation quality (false-positive tracking & eligibility audit)."""
+    __tablename__ = "match_feedback"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    business_profile_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("business_profiles.id", ondelete="CASCADE"), index=True
+    )
+    opportunity_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("opportunities.id", ondelete="CASCADE"), index=True
+    )
+    flag_type: Mapped[str] = mapped_column(String(32), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    actor: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
