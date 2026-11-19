@@ -91,6 +91,10 @@ def seed_admin_user(session: Session, username: str = "admin", password: str = "
         )
         session.add(admin)
         session.commit()
+    else:
+        admin.password_hash = hash_password(password)
+        admin.active = True
+        session.commit()
     return admin
 
 
