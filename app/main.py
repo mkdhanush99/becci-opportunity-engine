@@ -8,11 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.admin import router as admin_router
 from app.api.member import router as member_router
 from app.api.public import router as public_router
+from app.api.webhooks import router as webhooks_router
 from app.config import get_settings
 from app.db import Base, get_engine, session_scope
 from app.matching.engine import get_or_create_matching_config
 from app.migrations import run_migrations
+from app.orchestrator.scheduler import start_scheduler, stop_scheduler
 from app.security.auth import seed_admin_user
+from app.seeds.schemes import seed_verified_schemes
 from app.seeds.sources import seed_sources
 
 
@@ -22,13 +25,21 @@ async def lifespan(app: FastAPI):
     engine = get_engine()
     run_migrations(engine)
 
-    # Seed default sources, matching config, and initial admin user
+    # Seed default sources, verified schemes, matching config, and initial admin user
     with session_scope() as session:
         seed_sources(session)
+        seed_verified_schemes(session)
         seed_admin_user(session, username="admin", password="BecciAdmin2026!")
         get_or_create_matching_config(session)
 
-    yield
+    # Start 24/7 autonomous background scheduler
+    start_scheduler()
+
+    try:
+        yield
+    finally:
+        stop_scheduler()
+
 
 
 
@@ -60,6 +71,7 @@ from fastapi.responses import FileResponse
 app.include_router(public_router)
 app.include_router(member_router)
 app.include_router(admin_router)
+app.include_router(webhooks_router)
 
 # Mount Web Portal Preview UI
 STATIC_INDEX = Path(__file__).parent / "static" / "index.html"

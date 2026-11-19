@@ -184,3 +184,54 @@ class MatchFeedbackType(StrEnum):
     INCOMPLETE_ELIGIBILITY = "incomplete_eligibility"
 
 
+# --------------------------------------------------------------------------- Government Schemes Controlled Vocabularies
+class BeneficiaryClassification(StrEnum):
+    OBC_BC_SPECIFIC = "obc_bc_specific"
+    GENERAL_MSME = "general_msme"
+    WOMEN_ENTREPRENEURS = "women_entrepreneurs"
+    STUDENTS = "students"
+    ARTISANS = "artisans"
+    FARMERS = "farmers"
+    GENERAL_ENTREPRENEURSHIP = "general_entrepreneurship"
+    OTHER_ELIGIBLE = "other_eligible"
+
+
+class GeographicalScope(StrEnum):
+    PAN_INDIA = "pan_india"
+    TELANGANA = "telangana"
+    ANDHRA_PRADESH = "andhra_pradesh"
+
+
+class SourceVerificationStatus(StrEnum):
+    VERIFIED = "verified"
+    PARTIALLY_VERIFIED = "partially_verified"
+    UNVERIFIED = "unverified"
+
+
+class SchemeApplicationStatus(StrEnum):
+    OPEN = "open"
+    UPCOMING = "upcoming"
+    CLOSED = "closed"
+    CONTINUOUS = "continuous"
+    SUSPENDED = "suspended"
+    UNKNOWN = "unknown"
+
+
+class BenefitType(StrEnum):
+    GRANT = "grant"
+    SUBSIDY = "subsidy"
+    LOAN = "loan"
+    SCHOLARSHIP = "scholarship"
+    REIMBURSEMENT = "reimbursement"
+    TRAINING = "training"
+    OTHER = "other"
+
+
+class SchemeEligibilityAssessmentStatus(StrEnum):
+    ELIGIBLE = "eligible"
+    POTENTIALLY_ELIGIBLE = "potentially_eligible"
+    NOT_ELIGIBLE = "not_eligible"
+    CANNOT_ESTABLISH = "cannot_establish"
+
+
+

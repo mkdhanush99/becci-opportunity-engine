@@ -215,6 +215,9 @@ class Opportunity(Base):
     tender_detail: Mapped["TenderDetail | None"] = relationship(
         back_populates="opportunity", uselist=False, cascade="all, delete-orphan"
     )
+    scheme_detail: Mapped["SchemeDetail | None"] = relationship(
+        back_populates="opportunity", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 
@@ -303,6 +306,39 @@ class TenderDetail(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="tender_detail")
+
+
+class SchemeDetail(Base):
+    """1-to-1 extension table for Central, Telangana, and Andhra Pradesh Government Schemes."""
+    __tablename__ = "scheme_details"
+
+    opportunity_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("opportunities.id", ondelete="CASCADE"), primary_key=True
+    )
+    scheme_name: Mapped[str] = mapped_column(String(500))
+    government_department: Mapped[str] = mapped_column(String(255))
+    geographical_scope: Mapped[str] = mapped_column(String(32), index=True)  # pan_india | telangana | andhra_pradesh
+    beneficiary_classification: Mapped[str] = mapped_column(String(64), index=True, default="other_eligible")
+    beneficiary_categories: Mapped[list] = mapped_column(JSON, default=list)
+    applicable_castes: Mapped[list] = mapped_column(JSON, default=list)
+    domicile_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    domicile_state: Mapped[str | None] = mapped_column(String(64), index=True)
+    income_limit: Mapped[str | None] = mapped_column(String(255))
+    age_limit: Mapped[str | None] = mapped_column(String(128))
+    education_requirement: Mapped[str | None] = mapped_column(Text)
+    occupation_requirement: Mapped[str | None] = mapped_column(Text)
+    business_eligibility: Mapped[str | None] = mapped_column(Text)
+    benefit_type: Mapped[str] = mapped_column(String(64), default="other")
+    benefit_amount: Mapped[str | None] = mapped_column(String(255))
+    source_verification_status: Mapped[str] = mapped_column(String(32), index=True, default="verified")
+    application_status: Mapped[str] = mapped_column(String(32), index=True, default="open")
+    required_documents: Mapped[list] = mapped_column(JSON, default=list)
+    official_application_url: Mapped[str | None] = mapped_column(String(2048))
+    official_guideline_url: Mapped[str | None] = mapped_column(String(2048))
+    last_verified_at: Mapped[dt.datetime | None] = mapped_column(TZDateTime(), default=utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
+
+    opportunity: Mapped[Opportunity] = relationship(back_populates="scheme_detail")
 
 
 
@@ -444,5 +480,45 @@ class MatchFeedback(Base):
     flag_type: Mapped[str] = mapped_column(String(32), index=True)
     reason: Mapped[str] = mapped_column(Text)
     actor: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
+
+class DLQRecord(Base):
+    """Dead-letter queue for malformed, unparseable, or rejected records from scrapers and Apify webhooks."""
+    __tablename__ = "dlq_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    category: Mapped[str | None] = mapped_column(String(32), index=True)
+    stage: Mapped[str] = mapped_column(String(64), index=True)  # e.g., "apify_webhook", "extraction", "validation", "security"
+    error_reason: Mapped[str] = mapped_column(Text)
+    raw_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
+
+
+class AIExtractionCache(Base):
+    """Document-hash cache for AI extractions, eliminating redundant API spend."""
+    __tablename__ = "ai_extraction_cache"
+
+    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)  # sha256(f"{model}:{prompt_hash}")
+    model: Mapped[str] = mapped_column(String(64), index=True)
+    response_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
+
+class AIUsageLog(Base):
+    """Granular token consumption and cost audit per agent execution."""
+    __tablename__ = "ai_usage_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agent_id: Mapped[str] = mapped_column(String(64), index=True)
+    model: Mapped[str] = mapped_column(String(64), index=True)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    total_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
 

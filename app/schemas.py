@@ -82,7 +82,49 @@ class PublicOpportunityOut(BaseModel):
     lifecycle_status: str
     expiry_status: str
     tender_detail: TenderDetailOut | None = None
+    scheme_detail: SchemeDetailOut | None = None
     disclaimer: str = STANDARD_DISCLAIMER
+
+
+class SchemeDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    scheme_name: str
+    government_department: str
+    geographical_scope: str
+    beneficiary_classification: str
+    beneficiary_categories: list[str] = Field(default_factory=list)
+    applicable_castes: list[str] = Field(default_factory=list)
+    domicile_required: bool
+    domicile_state: str | None
+    income_limit: str | None
+    age_limit: str | None
+    education_requirement: str | None
+    occupation_requirement: str | None
+    business_eligibility: str | None
+    benefit_type: str
+    benefit_amount: str | None
+    source_verification_status: str
+    application_status: str
+    required_documents: list[str] = Field(default_factory=list)
+    official_application_url: str | None
+    official_guideline_url: str | None
+    last_verified_at: dt.datetime | None
+
+
+class SchemeEligibilityAssessmentOut(BaseModel):
+    status: str
+    status_label: str
+    matched_conditions: list[str] = Field(default_factory=list)
+    unmatched_conditions: list[str] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
+    notes: str
+    disclaimer: str = (
+        "Eligibility assessment is advisory only based on user-supplied parameters. "
+        "BECCI does not promise or guarantee approval of any grant, subsidy, loan or scholarship. "
+        "Final eligibility is determined exclusively by the respective issuing government department."
+    )
+
 
 
 

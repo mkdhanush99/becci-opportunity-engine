@@ -1,0 +1,13 @@
+.venv
+.git
+.pytest_cache
+__pycache__
+*.pyc
+.coverage
+.env
+data/test_becci.db*
+data/becci.db-shm
+data/becci.db-wal
+docs
+tests
+deploy

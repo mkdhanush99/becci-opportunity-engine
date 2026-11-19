@@ -15,9 +15,12 @@ from app.matching.engine import (
     rank_opportunities_for_profile,
 )
 from app.models import (
+    AIExtractionCache,
+    AIUsageLog,
     AdminUser,
     AuditLog,
     BusinessProfile,
+    DLQRecord,
     MatchFeedback,
     Opportunity,
     ScanRun,
@@ -286,6 +289,85 @@ def get_source_health(
     }
 
 
+@router.post("/sources/{source_id}/toggle", response_model=SourceOut, summary="Toggle source active / paused state")
+def toggle_source(
+    source_id: str,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.ADMIN))],
+    session: Session = Depends(get_db),
+):
+    source = session.get(Source, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+    source.active = not source.active
+    session.add(
+        AuditLog(
+            actor=current_admin.username,
+            action="toggle_source",
+            target_type="source",
+            target_id=source.id,
+            detail={"active": source.active},
+            created_at=utcnow(),
+        )
+    )
+    session.commit()
+    session.refresh(source)
+    return SourceOut.model_validate(source)
+
+
+@router.get("/scheduler/status", summary="Get 24/7 autonomous scheduler status and cadences")
+def get_scheduler_status(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+):
+    from app.orchestrator.scheduler import AutonomousScheduler
+    scheduler = AutonomousScheduler()
+    return scheduler.get_status()
+
+
+@router.get("/dlq", summary="List Dead-Letter Queue (DLQ) records")
+def list_dlq_records(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    resolved: bool | None = None,
+    limit: int = Query(50, le=200),
+    session: Session = Depends(get_db),
+):
+    stmt = select(DLQRecord)
+    if resolved is not None:
+        stmt = stmt.where(DLQRecord.resolved == resolved)
+    stmt = stmt.order_by(DLQRecord.created_at.desc()).limit(limit)
+    records = session.scalars(stmt).all()
+    return [
+        {
+            "id": r.id,
+            "source_id": r.source_id,
+            "category": r.category,
+            "stage": r.stage,
+            "error_reason": r.error_reason,
+            "raw_payload": r.raw_payload,
+            "retry_count": r.retry_count,
+            "resolved": r.resolved,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in records
+    ]
+
+
+@router.post("/apify/run-actor", summary="Manually trigger an Apify cloud Actor run")
+def run_apify_actor(
+    actor_id: str,
+    run_input: dict,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.ADMIN))],
+):
+    from app.fetch.apify_client import ApifyClient
+    client = ApifyClient()
+    if not client.is_configured:
+        raise HTTPException(status_code=400, detail="Apify API token is not configured on this server")
+    try:
+        run = client.start_actor_run(actor_id, run_input)
+        return {"status": "started", "run": run}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Apify execution failed: {exc}")
+
+
 # --------------------------------------------------------------------------- Monitoring & Metrics
 @router.get("/metrics", response_model=SystemMetricsOut, summary="System-wide operational metrics")
 def get_metrics(
@@ -321,6 +403,51 @@ def get_metrics(
         expired_opportunities=exp_opps,
         duplicates_merged=int(dups),
     )
+
+
+@router.get("/ai/metrics", summary="DeepSeek AI token consumption and spending metrics")
+def get_ai_metrics(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    from app.ai.deepseek_client import DeepSeekClient
+    client = DeepSeekClient()
+    today_start = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    spent_today = session.scalar(
+        select(func.sum(AIUsageLog.cost_usd)).where(AIUsageLog.created_at >= today_start)
+    ) or 0.0
+    total_spent = session.scalar(select(func.sum(AIUsageLog.cost_usd))) or 0.0
+    total_calls = session.scalar(select(func.count(AIUsageLog.id))) or 0
+    cached_count = session.scalar(select(func.count(AIExtractionCache.cache_key))) or 0
+
+    recent_logs = session.scalars(
+        select(AIUsageLog).order_by(AIUsageLog.created_at.desc()).limit(20)
+    ).all()
+
+    return {
+        "is_configured": client.is_configured,
+        "default_model": client.default_model,
+        "advanced_model": client.advanced_model,
+        "daily_spend_limit_usd": client.settings.deepseek_daily_spend_limit_usd,
+        "spent_today_usd": round(float(spent_today), 4),
+        "total_spent_usd": round(float(total_spent), 4),
+        "total_calls": total_calls,
+        "cached_count": cached_count,
+        "recent_usage": [
+            {
+                "id": l.id,
+                "agent_id": l.agent_id,
+                "model": l.model,
+                "prompt_tokens": l.prompt_tokens,
+                "completion_tokens": l.completion_tokens,
+                "total_tokens": l.total_tokens,
+                "cost_usd": l.cost_usd,
+                "created_at": l.created_at.isoformat() if l.created_at else None,
+            }
+            for l in recent_logs
+        ],
+    }
 
 
 # --------------------------------------------------------------------------- Phase 3: Admin Matching Controls & Audit

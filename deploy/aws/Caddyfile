@@ -1,0 +1,5 @@
+# Replace api.becci.in with your target HTTPS domain (Caddy provisions Let's Encrypt TLS automatically)
+api.becci.in {
+    encode gzip
+    reverse_proxy 127.0.0.1:8000
+}

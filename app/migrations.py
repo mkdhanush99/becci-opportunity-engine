@@ -173,6 +173,120 @@ MIGRATIONS: list[dict] = [
             "DROP TABLE IF EXISTS member_accounts",
         ],
     },
+    {
+        "version": "004_scheme_details",
+        "description": "Create scheme_details 1-to-1 extension table and indexes for Central, Telangana, and AP Government Schemes",
+        "up_sql": [
+            """
+            CREATE TABLE IF NOT EXISTS scheme_details (
+                opportunity_id VARCHAR(32) NOT NULL PRIMARY KEY,
+                scheme_name VARCHAR(500) NOT NULL,
+                government_department VARCHAR(255) NOT NULL,
+                geographical_scope VARCHAR(32) NOT NULL,
+                beneficiary_classification VARCHAR(64) NOT NULL DEFAULT 'other_eligible',
+                beneficiary_categories JSON NOT NULL DEFAULT '[]',
+                applicable_castes JSON NOT NULL DEFAULT '[]',
+                domicile_required BOOLEAN NOT NULL DEFAULT 0,
+                domicile_state VARCHAR(64),
+                income_limit VARCHAR(255),
+                age_limit VARCHAR(128),
+                education_requirement TEXT,
+                occupation_requirement TEXT,
+                business_eligibility TEXT,
+                benefit_type VARCHAR(64) NOT NULL DEFAULT 'other',
+                benefit_amount VARCHAR(255),
+                source_verification_status VARCHAR(32) NOT NULL DEFAULT 'verified',
+                application_status VARCHAR(32) NOT NULL DEFAULT 'open',
+                required_documents JSON NOT NULL DEFAULT '[]',
+                official_application_url VARCHAR(2048),
+                official_guideline_url VARCHAR(2048),
+                last_verified_at DATETIME,
+                updated_at DATETIME NOT NULL,
+                FOREIGN KEY(opportunity_id) REFERENCES opportunities (id) ON DELETE CASCADE
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_scheme_details_scope ON scheme_details (geographical_scope)",
+            "CREATE INDEX IF NOT EXISTS ix_scheme_details_classification ON scheme_details (beneficiary_classification)",
+            "CREATE INDEX IF NOT EXISTS ix_scheme_details_domicile ON scheme_details (domicile_state)",
+            "CREATE INDEX IF NOT EXISTS ix_scheme_details_app_status ON scheme_details (application_status)",
+            "CREATE INDEX IF NOT EXISTS ix_scheme_details_ver_status ON scheme_details (source_verification_status)",
+        ],
+        "down_sql": [
+            "DROP INDEX IF EXISTS ix_scheme_details_ver_status",
+            "DROP INDEX IF EXISTS ix_scheme_details_app_status",
+            "DROP INDEX IF EXISTS ix_scheme_details_domicile",
+            "DROP INDEX IF EXISTS ix_scheme_details_classification",
+            "DROP INDEX IF EXISTS ix_scheme_details_scope",
+            "DROP TABLE IF EXISTS scheme_details",
+        ],
+    },
+    {
+        "version": "005_dlq_records",
+        "description": "Create dlq_records table for dead-letter queue tracking of scraper and Apify webhook failures",
+        "up_sql": [
+            """
+            CREATE TABLE IF NOT EXISTS dlq_records (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id VARCHAR(64),
+                category VARCHAR(32),
+                stage VARCHAR(64) NOT NULL,
+                error_reason TEXT NOT NULL,
+                raw_payload JSON NOT NULL DEFAULT '{}',
+                retry_count INTEGER NOT NULL DEFAULT 0,
+                resolved BOOLEAN NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_dlq_records_source_id ON dlq_records (source_id)",
+            "CREATE INDEX IF NOT EXISTS ix_dlq_records_category ON dlq_records (category)",
+            "CREATE INDEX IF NOT EXISTS ix_dlq_records_stage ON dlq_records (stage)",
+            "CREATE INDEX IF NOT EXISTS ix_dlq_records_resolved ON dlq_records (resolved)",
+        ],
+        "down_sql": [
+            "DROP INDEX IF EXISTS ix_dlq_records_resolved",
+            "DROP INDEX IF EXISTS ix_dlq_records_stage",
+            "DROP INDEX IF EXISTS ix_dlq_records_category",
+            "DROP INDEX IF EXISTS ix_dlq_records_source_id",
+            "DROP TABLE IF EXISTS dlq_records",
+        ],
+    },
+    {
+        "version": "006_ai_intelligence",
+        "description": "Create ai_extraction_cache and ai_usage_logs for DeepSeek AI intelligence layer",
+        "up_sql": [
+            """
+            CREATE TABLE IF NOT EXISTS ai_extraction_cache (
+                cache_key VARCHAR(64) PRIMARY KEY,
+                model VARCHAR(64) NOT NULL,
+                response_json JSON NOT NULL DEFAULT '{}',
+                created_at DATETIME NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_ai_extraction_cache_model ON ai_extraction_cache (model)",
+            """
+            CREATE TABLE IF NOT EXISTS ai_usage_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id VARCHAR(64) NOT NULL,
+                model VARCHAR(64) NOT NULL,
+                prompt_tokens INTEGER NOT NULL DEFAULT 0,
+                completion_tokens INTEGER NOT NULL DEFAULT 0,
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                cost_usd FLOAT NOT NULL DEFAULT 0.0,
+                created_at DATETIME NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_ai_usage_logs_agent_id ON ai_usage_logs (agent_id)",
+            "CREATE INDEX IF NOT EXISTS ix_ai_usage_logs_model ON ai_usage_logs (model)",
+        ],
+        "down_sql": [
+            "DROP INDEX IF EXISTS ix_ai_usage_logs_model",
+            "DROP INDEX IF EXISTS ix_ai_usage_logs_agent_id",
+            "DROP TABLE IF EXISTS ai_usage_logs",
+            "DROP INDEX IF EXISTS ix_ai_extraction_cache_model",
+            "DROP TABLE IF EXISTS ai_extraction_cache",
+        ],
+    },
 ]
 
 

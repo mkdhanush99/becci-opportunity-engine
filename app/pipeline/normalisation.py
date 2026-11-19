@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime as dt
 from app.enums import ExpiryStatus, LifecycleStatus, SourceReliability
-from app.models import Evidence, Opportunity, OpportunityVersion, Source, TenderDetail, new_id, utcnow
+from app.models import Evidence, Opportunity, OpportunityVersion, SchemeDetail, Source, TenderDetail, new_id, utcnow
 from app.pipeline.extraction import ExtractedItem, parse_date, sha256, slugify, title_key
 
 
@@ -39,6 +39,8 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
         state = source.geographic_coverage[0] if len(source.geographic_coverage) == 1 and source.geographic_coverage[0] != "National" else None
     if not state and ("telangana" in item.title.lower() or "tgpsc" in item.external_key):
         state = "Telangana"
+    elif not state and ("andhra" in item.title.lower() or "appsc" in item.external_key or "apiic" in item.external_key):
+        state = "Andhra Pradesh"
     elif not state and ("maharashtra" in item.title.lower() or "mpsc" in item.external_key):
         state = "Maharashtra"
 
@@ -52,7 +54,7 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
     opp_id = new_id()
     slug = f"{slugify(item.title)}-{opp_id[:8]}"
 
-    routed_cat = item.fields.get("routed_category")
+    routed_cat = item.fields.get("routed_category") or item.fields.get("category")
     category = routed_cat or (source.categories[0] if source.categories else "job")
 
     opp = Opportunity(
@@ -180,5 +182,46 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
             updated_at=now,
         )
 
+    # Attach 1-to-1 SchemeDetail record for government schemes
+    if opp.category == "funding" or "scheme_detail" in item.fields:
+        s_data = item.fields.get("scheme_detail") or {}
+        scope = s_data.get("geographical_scope")
+        if not scope:
+            if opp.state == "Telangana":
+                scope = "telangana"
+            elif opp.state == "Andhra Pradesh":
+                scope = "andhra_pradesh"
+            else:
+                scope = "pan_india"
+
+        opp.scheme_detail = SchemeDetail(
+            opportunity_id=opp_id,
+            scheme_name=s_data.get("scheme_name") or opp.title,
+            government_department=s_data.get("government_department") or opp.issuing_organisation,
+            geographical_scope=scope,
+            beneficiary_classification=s_data.get("beneficiary_classification") or (
+                "obc_bc_specific" if "backward classes" in (opp.issuing_organisation or "").lower() or "bc" in opp.title.lower() else "general_msme"
+            ),
+            beneficiary_categories=s_data.get("beneficiary_categories") or ["entrepreneurs"],
+            applicable_castes=s_data.get("applicable_castes") or (["OBC"] if "nbcfdc" in (opp.issuing_organisation or "").lower() else ["All"]),
+            domicile_required=s_data.get("domicile_required", bool(opp.state in ("Telangana", "Andhra Pradesh"))),
+            domicile_state=s_data.get("domicile_state") or opp.state,
+            income_limit=s_data.get("income_limit"),
+            age_limit=s_data.get("age_limit"),
+            education_requirement=s_data.get("education_requirement") or opp.qualification,
+            occupation_requirement=s_data.get("occupation_requirement"),
+            business_eligibility=s_data.get("business_eligibility") or opp.eligibility,
+            benefit_type=s_data.get("benefit_type") or "loan",
+            benefit_amount=s_data.get("benefit_amount") or opp.financial_details,
+            source_verification_status=s_data.get("source_verification_status") or "verified",
+            application_status=s_data.get("application_status") or "continuous",
+            required_documents=s_data.get("required_documents") or [],
+            official_application_url=s_data.get("official_application_url") or opp.application_url or opp.original_url,
+            official_guideline_url=s_data.get("official_guideline_url") or opp.original_url,
+            last_verified_at=now,
+            updated_at=now,
+        )
+
     return opp
+
 

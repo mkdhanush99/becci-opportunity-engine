@@ -155,6 +155,13 @@ class Orchestrator:
 
                         opp = normalise_item(item, source, agent.agent_id, is_fixture=is_fixture)
 
+                        # Enforce BECCI regional scope: PAN-India (National/None), Andhra Pradesh, and Telangana ONLY
+                        allowed_states = getattr(self.settings, "target_states", ["National", "Andhra Pradesh", "Telangana"])
+                        if not is_fixture and opp.state and opp.state not in allowed_states:
+                            ctx.step("item.geo_filtered", key=item.external_key, state=opp.state, title=opp.title[:60])
+                            skipped_count += 1
+                            continue
+
                         action, saved_opp = handle_deduplication_and_changes(
                             self.session, opp, actor=f"agent:{agent.agent_id}"
                         )

@@ -6,3 +6,6 @@ __pycache__/
 *.log
 *-shm
 *-wal
+*.backup*
+data/test_becci*
+.env

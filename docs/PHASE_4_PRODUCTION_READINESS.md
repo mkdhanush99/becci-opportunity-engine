@@ -19,3 +19,22 @@
 1. Deploy `becci-opportunity-engine` (FastAPI + SQLite/PostgreSQL + Playwright) on a persistent Linux VPS (e.g., Hostinger KVM VPS) behind HTTPS at `https://api.becci.in`.
 2. Set `BECCI_SECRET_KEY` (strong random 32+ byte secret) and `BECCI_ENV=production` in server environment variables.
 3. Rebuild `becci-opportunity-portal` with `VITE_BECCI_API_BASE_URL=https://api.becci.in` and redeploy to `preview.becci.in` or link from `becci.in`.
+
+## Live Cloud Production Deployment Sign-Off (2026-11-19)
+
+### 1. Live Deployment Topology
+- **Backend API Host:** Azure App Service (Linux `PYTHON|3.12`, SKU: `B1`, Region: `Central India` / Pune)
+  - **Live URL:** `https://becci-api.azurewebsites.net`
+  - **Health Check:** `https://becci-api.azurewebsites.net/api/v1/health`
+  - **Metadata Endpoint:** `https://becci-api.azurewebsites.net/api/v1/metadata`
+  - **Opportunities Endpoint:** `https://becci-api.azurewebsites.net/api/v1/opportunities`
+  - **CORS Allowed Origins:** `https://preview.becci.in`, `https://becci.in`, `https://www.becci.in`, `http://localhost:5173`
+- **Frontend Portal Host:** Hostinger Web Hosting (Static SPA + `.htaccess` routing)
+  - **Live Portal URL:** `https://preview.becci.in`
+  - **Main Production Site Untouched:** `https://becci.in`
+
+### 2. Verification Results
+- `GET https://becci-api.azurewebsites.net/api/v1/health` -> HTTP 200 `{"status": "healthy", "service": "BECCI Opportunity Intelligence Engine", "version": "3.0.0"}`
+- `GET https://becci-api.azurewebsites.net/api/v1/opportunities?limit=5` -> HTTP 200 with genuine opportunities loaded from `data/becci.db`.
+- `OPTIONS https://becci-api.azurewebsites.net/api/v1/opportunities` with `Origin: https://preview.becci.in` -> HTTP 200 `Access-Control-Allow-Origin: https://preview.becci.in`.
+- `GET https://preview.becci.in` -> HTTP 200, serving React 18 SPA pointing directly to Azure backend.
