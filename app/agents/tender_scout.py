@@ -48,12 +48,15 @@ SECTOR_RULES: list[tuple[BECCISector, re.Pattern]] = [
     (
         BECCISector.IT_TECHNOLOGY,
         re.compile(
-            r"\b(software|hardware|server|network|data\s+aggregator|cctv|anpr|camera|nvr|computer|laptop|"
-            r"telecom|cloud|cyber|gis|it\s+system|cohesity|fiber\s+network|interactive\s+display|digital|erp|"
+            r"\b(software|hardware|servers?|networks?|data\s+aggregator|cctv|anpr|cameras?|nvr|computers?|laptops?|"
+            r"telecom|cloud|cyber\s*security|cyber|gis|it\s+systems?|cohesity|fiber\s+network|interactive\s+displays?|"
+            r"display\s+screens?|digital|erp|m365|microsoft\s+365|software\s+licens\w*|subscription\s+of\s+m365|"
+            r"technology\s+refresh|security\s+solutions?|information\s+security|"
             r"radar\s+vfr\s+3d\s+tower\s+simulator)\b",
             re.I,
         ),
     ),
+
     (
         BECCISector.CONSTRUCTION_INFRASTRUCTURE,
         re.compile(
@@ -108,7 +111,7 @@ SECTOR_RULES: list[tuple[BECCISector, re.Pattern]] = [
         BECCISector.TRADING_DISTRIBUTION,
         re.compile(
             r"\b(waste\s+container|dustbin|furniture|almirah|chair|stationery|paper|office\s+supplies|"
-            r"consumables|garment|uniform|footwear|utensil|supply\s+of)\b",
+            r"consumables|garment|uniform|footwear|utensil|supply\s+of|miscellaneous\s+goods)\b",
             re.I,
         ),
     ),
@@ -124,11 +127,36 @@ SECTOR_RULES: list[tuple[BECCISector, re.Pattern]] = [
 ]
 
 
-def classify_sector(text: str, product_category: str = "", tender_category: str = "") -> str:
-    combined = f"{product_category} {title_or_text(text)} {tender_category}"
-    for sector, pattern in SECTOR_RULES:
-        if pattern.search(combined):
-            return sector.value
+def classify_sector(
+    text: str,
+    product_category: str = "",
+    tender_category: str = "",
+    *,
+    title: str = "",
+    buyer_text: str = "",
+) -> str:
+    """Classifies a tender into one of the 11 BECCI sectors with strict context precedence:
+    1. Product category
+    2. Tender title
+    3. Relevant technical description
+    4. Buyer or ministry information
+    5. Tender category fallback
+    """
+    tiers = []
+    if product_category and product_category.strip().lower() not in ("", "not stated", "na", "n/a"):
+        tiers.append(product_category)
+    if title and title.strip():
+        tiers.append(title)
+    if text and text.strip():
+        tiers.append(title_or_text(text))
+    if buyer_text and buyer_text.strip():
+        tiers.append(buyer_text)
+
+    for tier_text in tiers:
+        for sector, pattern in SECTOR_RULES:
+            if pattern.search(tier_text):
+                return sector.value
+
     if "work" in tender_category.lower():
         return BECCISector.CONSTRUCTION_INFRASTRUCTURE.value
     if "service" in tender_category.lower():
@@ -136,6 +164,7 @@ def classify_sector(text: str, product_category: str = "", tender_category: str 
     if "good" in tender_category.lower() or "product" in tender_category.lower():
         return BECCISector.TRADING_DISTRIBUTION.value
     return BECCISector.OTHER.value
+
 
 
 def title_or_text(s: str) -> str:
@@ -324,6 +353,11 @@ def extract_eligibility_intelligence(text: str, fields: dict | None = None) -> d
         "industry_licences": lic_val,
         "experience_conditions": exp_val,
         "turnover_conditions": turn_val,
+        "bidder_turnover_conditions": fields.get("bidder_turnover_requirement")
+        or (turn_val if fields.get("turnover_field_variant") == "bidder_average_annual_turnover" else NOT_STATED),
+        "oem_turnover_conditions": fields.get("oem_turnover_requirement") or NOT_STATED,
+        "turnover_field_variant": fields.get("turnover_field_variant")
+        or ("text_extracted_bidder_turnover" if turn_val != NOT_STATED else None),
         "category_conditions": comp_val if comp_val != NOT_STATED else NOT_STATED,
         "consortium_jv_permissions": jv_val,
         "required_registrations": registrations,
@@ -387,15 +421,19 @@ def parse_gem_pdf_details(pdf_str: str) -> tuple[dict, list[Claim]]:
         fields["bid_opening_date"] = d_iso
         claims.append(Claim("bid_opening_date", d_iso, snippet_around(pdf_str, m_open.start(), m_open.end())))
 
-    # Organisation Name
+    # Organisation Name (guarding against placeholder 'N/a' or masked values)
     m_org = re.search(
-        r"Organisation\s+Name\s+([A-Za-z0-9 &(),.\-/]+?)(?:\s+Office\s+Name|\s+काया|\s+Contact\s+details)",
+        r"Organisation\s+Name(?:\s*/\s*[^\s]+)?\s+([A-Za-z0-9 &(),.\-/]+?)(?:\s+Office\s+Name|\s+काया|\s+Contact\s+details|\s+Ministry/State)",
         pdf_str,
         re.I,
     )
     if m_org:
         org_val = clean_text(m_org.group(1))
-        if org_val and "*" not in org_val:
+        if (
+            org_val
+            and "*" not in org_val
+            and org_val.lower().strip(" ./-") not in ("", "n/a", "na", "n.a", "nil", "none", "not applicable")
+        ):
             fields["organisation_name"] = org_val
             claims.append(Claim("issuing_organisation", org_val, snippet_around(pdf_str, m_org.start(), m_org.end())))
 
@@ -415,16 +453,51 @@ def parse_gem_pdf_details(pdf_str: str) -> tuple[dict, list[Claim]]:
     elif re.search(r"EMD\s+Detail\s+Required\s+No", pdf_str, re.I):
         fields["emd_amount"] = "INR 0 (Not required)"
 
-    # Minimum Average Annual Turnover
-    m_turn = re.search(
-        r"Minimum\s+Average\s+Annual\s+Turnover\s+of\s+the\s+bidder\s*\([^)]+\)\s*(\d+[\d,.]*\s*Lakh\s*\(?s?\)?)",
+    # Turnover Variants: Bidder Average Annual Turnover vs OEM Average Turnover (Last 3 Years)
+    m_bidder_turn = re.search(
+        r"Minimum\s+Average\s+Annual\s+Turnover\s+of\s+the\s+bidder\s*\([^)]+\)\s*(\d+[\d,.]*\s*(?:Lakh|Crore)\s*\(?s?\)?)",
         pdf_str,
         re.I,
     )
-    if m_turn:
-        t_val = clean_text(m_turn.group(1))
-        fields["turnover_requirement"] = t_val
-        claims.append(Claim("turnover_requirement", t_val, snippet_around(pdf_str, m_turn.start(), m_turn.end())))
+    m_oem_turn = re.search(
+        r"OEM\s+Average\s+Turnover\s*\(Last\s*3\s*Years\)\s*(\d+[\d,.]*\s*(?:Lakh|Crore)\s*\(?s?\)?)",
+        pdf_str,
+        re.I,
+    )
+    bidder_turn_val = clean_text(m_bidder_turn.group(1)) if m_bidder_turn else None
+    oem_turn_val = clean_text(m_oem_turn.group(1)) if m_oem_turn else None
+
+    if bidder_turn_val and oem_turn_val:
+        fields["bidder_turnover_requirement"] = bidder_turn_val
+        fields["oem_turnover_requirement"] = oem_turn_val
+        fields["turnover_field_variant"] = "both_bidder_and_oem_turnover"
+        fields["turnover_requirement"] = (
+            f"Bidder Turnover: {bidder_turn_val}; OEM Average Turnover (Last 3 Years): {oem_turn_val}"
+        )
+        claims.append(
+            Claim("turnover_requirement", bidder_turn_val, snippet_around(pdf_str, m_bidder_turn.start(), m_bidder_turn.end()))
+        )
+        claims.append(
+            Claim("oem_turnover_requirement", oem_turn_val, snippet_around(pdf_str, m_oem_turn.start(), m_oem_turn.end()))
+        )
+    elif bidder_turn_val:
+        fields["bidder_turnover_requirement"] = bidder_turn_val
+        fields["turnover_field_variant"] = "bidder_average_annual_turnover"
+        fields["turnover_requirement"] = bidder_turn_val
+        claims.append(
+            Claim("turnover_requirement", bidder_turn_val, snippet_around(pdf_str, m_bidder_turn.start(), m_bidder_turn.end()))
+        )
+    elif oem_turn_val:
+        fields["oem_turnover_requirement"] = oem_turn_val
+        fields["turnover_field_variant"] = "oem_average_turnover_3yr"
+        fields["turnover_requirement"] = f"OEM Average Turnover (Last 3 Years): {oem_turn_val}"
+        claims.append(
+            Claim(
+                "oem_turnover_requirement",
+                f"OEM Average Turnover (Last 3 Years): {oem_turn_val}",
+                snippet_around(pdf_str, m_oem_turn.start(), m_oem_turn.end()),
+            )
+        )
 
     # Years of Past Experience
     m_exp = re.search(
@@ -535,7 +608,17 @@ def build_gem_item_from_doc(doc: dict, pdf_str: str = "", base_url: str = "https
     if pdf_str:
         raw_text += f"\n\n[GeM Bid Document PDF Excerpt]\n{pdf_str[:6000]}"
 
-    sector = classify_sector(raw_text, product_category=cat_name, tender_category=fields["tender_category"])
+    technical_desc = f"Bid No: {bid_no} | Category: {cat_name} | Quantity: {qty}"
+    if pdf_str:
+        technical_desc += f"\n{pdf_str[:6000]}"
+
+    sector = classify_sector(
+        technical_desc,
+        product_category=cat_name,
+        tender_category=fields["tender_category"],
+        title=title,
+        buyer_text=f"{min_name} {dept_name}",
+    )
     state, city, loc_type = classify_geography(raw_text, org_chain=f"{min_name} {dept_name}")
     elig_intel = extract_eligibility_intelligence(raw_text, fields)
 
@@ -891,7 +974,13 @@ def build_cppp_item(
         fields["bid_opening_date"] = bid_open_d.isoformat()
 
 
-    sector = classify_sector(f"{title} {work_desc} {p_cat}", product_category=p_cat, tender_category=t_cat)
+    sector = classify_sector(
+        work_desc,
+        product_category=p_cat,
+        tender_category=t_cat,
+        title=title,
+        buyer_text=org_chain,
+    )
     state, city, loc_type = classify_geography(f"{title} {work_desc}", explicit_location=location_str, org_chain=org_chain)
     elig_intel = extract_eligibility_intelligence(f"{pre_qual} {remarks} {raw_text}", fields)
 
@@ -980,10 +1069,96 @@ def cppp_eprocure(source: Source, ctx: ScanContext) -> list[ExtractedItem]:
 
 # --------------------------------------------------------------------------- 7. SIDBI Institutional Tenders Parser
 SARFAESI_AUCTION_RE = re.compile(r"\b(SARFAESI|SARFESAI|E-Auction\s+Sale\s+Notice|Sale\s+notice\s+for\s+immovable)\b", re.I)
+SIDBI_CHALLENGE_FUND_RE = re.compile(
+    r"\b(innovation\s+challenge\s+fund|challenge\s+fund|cohort\s+applications?\s+open)\b",
+    re.I,
+)
+SIDBI_FUNDING_ANNOUNCEMENT_RE = re.compile(
+    r"\b(funding\s+applications?\s+open|grant\s+programme\s+applications?|seed\s+fund\s+applications?|"
+    r"financial\s+assistance\s+scheme|equity\s+support\s+scheme|venture\s+debt\s+programme)\b",
+    re.I,
+)
+SIDBI_EMPANELMENT_RE = re.compile(r"\b(empanelment|registration\s+of\s+vendors?)\b", re.I)
+SIDBI_PROCUREMENT_RE = re.compile(
+    r"\b(request\s+for\s+proposal|rfp|rfq|eoi|expression\s+of\s+interest|tender|bid|quotation|"
+    r"corrigendum|addendum|procurement|supply|install\w*|commission\w*|hiring|engagement|"
+    r"appointment|selection|renewal\s+of\s+subscription|amc|annual\s+maintenance|shifting)\b",
+    re.I,
+)
+
+
+def classify_sidbi_notice(title: str) -> dict:
+    """Classifies a SIDBI notice into procurement RFP, vendor empanelment, funding/innovation challenge,
+    SARFAESI auction, or ambiguous notice requiring manual review.
+    """
+    t = clean_text(title)
+    if SARFAESI_AUCTION_RE.search(t):
+        return {
+            "notice_type": "sarfaesi_auction",
+            "routed_category": None,
+            "subcategory": None,
+            "tender_category": None,
+            "is_tender": False,
+            "manual_review_required": False,
+            "skip_reason": "SARFAESI Act distressed-asset recovery auction, not a procurement tender",
+        }
+    if SIDBI_CHALLENGE_FUND_RE.search(t):
+        return {
+            "notice_type": "innovation_challenge_fund",
+            "routed_category": "funding",
+            "subcategory": "innovation_challenge",
+            "tender_category": None,
+            "is_tender": False,
+            "manual_review_required": False,
+            "skip_reason": None,
+        }
+    if SIDBI_FUNDING_ANNOUNCEMENT_RE.search(t):
+        return {
+            "notice_type": "funding_application_announcement",
+            "routed_category": "funding",
+            "subcategory": "funding_programme",
+            "tender_category": None,
+            "is_tender": False,
+            "manual_review_required": False,
+            "skip_reason": None,
+        }
+    if SIDBI_EMPANELMENT_RE.search(t):
+        return {
+            "notice_type": "vendor_empanelment",
+            "routed_category": "tender",
+            "subcategory": "empanelment",
+            "tender_category": "Empanelment",
+            "is_tender": True,
+            "manual_review_required": False,
+            "skip_reason": None,
+        }
+    if SIDBI_PROCUREMENT_RE.search(t):
+        low = t.lower()
+        t_cat = "Services" if ("rfp" in low or "hiring" in low or "engagement" in low) else "Goods"
+        return {
+            "notice_type": "procurement_rfp",
+            "routed_category": "tender",
+            "subcategory": t_cat.lower(),
+            "tender_category": t_cat,
+            "is_tender": True,
+            "manual_review_required": False,
+            "skip_reason": None,
+        }
+    return {
+        "notice_type": "ambiguous_sidbi_notice",
+        "routed_category": "tender",
+        "subcategory": "under_review",
+        "tender_category": "Under review",
+        "is_tender": True,
+        "manual_review_required": True,
+        "skip_reason": None,
+    }
 
 
 def parse_sidbi_tender_rows(html: str, base_url: str = "https://www.sidbi.in/en/tenders") -> list[ExtractedItem]:
-    """Parses SIDBI tender table rows, excluding SARFAESI distressed-asset property auctions."""
+    """Parses SIDBI tender table rows, excluding SARFAESI auctions, routing funding/challenge notices
+    to funding, and flagging ambiguous notices for manual review while preserving evidence.
+    """
     s = soup_of(html)
     items: list[ExtractedItem] = []
 
@@ -1009,31 +1184,105 @@ def parse_sidbi_tender_rows(html: str, base_url: str = "https://www.sidbi.in/en/
                 detail_url = safe_link(href, base_url) or base_url
 
             slug_key = href.rstrip("/").split("/")[-1][:80] if href else f"row-{sno}-{title[:40]}"
+            notice_cls = classify_sidbi_notice(title)
 
             # Filter out SARFAESI property recovery auctions
-            if SARFAESI_AUCTION_RE.search(title):
+            if notice_cls["skip_reason"]:
                 items.append(
                     ExtractedItem(
                         external_key=f"skip:sidbi:{slug_key}",
                         title=title,
                         original_url=detail_url,
                         raw_text=f"{title} | {pub_raw} | {close_raw} | {remark}",
-                        skip_reason="SARFAESI Act distressed-asset recovery auction, not a procurement tender",
+                        skip_reason=notice_cls["skip_reason"],
                     )
                 )
                 continue
 
             pub_d = parse_date(pub_raw)
             close_d = parse_date(close_raw) or parse_date(remark)
-            ref_no = f"SIDBI/TENDER/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
 
+            if notice_cls["routed_category"] == "funding":
+                ref_no = f"SIDBI/FUND/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
+                raw_text = f"SIDBI Funding & Innovation Notice | Title: {title} | Date: {pub_raw} | Last Date: {close_raw} | {remark}"
+                sector = classify_sector(
+                    title,
+                    product_category=title,
+                    tender_category="Services",
+                    title=title,
+                    buyer_text="Small Industries Development Bank of India",
+                )
+                state, city, loc_type = classify_geography(title, org_chain="Small Industries Development Bank of India")
+                fields: dict = {
+                    "routed_category": "funding",
+                    "sidbi_notice_type": notice_cls["notice_type"],
+                    "reference_number": ref_no,
+                    "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
+                    "department": "SIDBI Innovation & Venture Funding Cell",
+                    "industry": sector,
+                    "sector": sector,
+                    "state": state,
+                    "city": city,
+                    "location_type": loc_type,
+                    "eligibility": "Refer to official SIDBI Innovation Challenge / Funding announcement guidelines",
+                    "financial_details": "Grant / Challenge Fund support as per official SIDBI programme guidelines",
+                    "application_method": "Online application via official SIDBI portal (www.sidbi.in)",
+                }
+                if pub_d:
+                    fields["published_date"] = pub_d.isoformat()
+                    fields["opening_date"] = pub_d.isoformat()
+                if close_d:
+                    fields["deadline"] = close_d.isoformat()
+
+                claims = [
+                    Claim("title", title, f"Title: {title}"),
+                    Claim("issuing_organisation", "Small Industries Development Bank of India (SIDBI)", "SIDBI Official Portal"),
+                    Claim("reference_number", ref_no, f"S. No. {sno} | Date: {pub_raw}"),
+                ]
+                if pub_d:
+                    claims.append(Claim("published_date", pub_d.isoformat(), f"Tender Date: {pub_raw}"))
+                if close_d:
+                    claims.append(Claim("deadline", close_d.isoformat(), f"Last Date Of Submission: {close_raw} ({remark})"))
+
+                items.append(
+                    ExtractedItem(
+                        external_key=f"sidbi-tender:{slug_key[:80]}",
+                        title=title,
+                        original_url=base_url,
+                        application_url=base_url,
+                        raw_text=raw_text,
+                        fields=fields,
+                        claims=claims,
+                        subcategory=notice_cls["subcategory"] or "innovation_challenge",
+                    )
+                )
+                continue
+
+            ref_no = f"SIDBI/TENDER/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
             raw_text = f"SIDBI Institutional Tender | Title: {title} | Tender Date: {pub_raw} | Last Date: {close_raw} | {remark}"
-            t_cat = "Empanelment" if "empanelment" in title.lower() else ("Services" if "rfp" in title.lower() or "hiring" in title.lower() or "engagement" in title.lower() else "Goods")
-            sector = classify_sector(title, product_category=title, tender_category=t_cat)
+            t_cat = notice_cls["tender_category"] or "Goods"
+            sector = classify_sector(
+                title,
+                product_category=title,
+                tender_category=t_cat,
+                title=title,
+                buyer_text="Small Industries Development Bank of India",
+            )
             state, city, loc_type = classify_geography(title, org_chain="Small Industries Development Bank of India")
             elig_intel = extract_eligibility_intelligence(raw_text)
+            if notice_cls["manual_review_required"]:
+                elig_intel["ambiguous_flag"] = True
 
-            fields: dict = {
+            t_status = (
+                TenderStatus.UNDER_VERIFICATION.value
+                if notice_cls["manual_review_required"]
+                else evaluate_tender_status(close_d, pub_d)
+            )
+
+            fields = {
+                "routed_category": "tender",
+                "sidbi_notice_type": notice_cls["notice_type"],
+                "manual_review_required": notice_cls["manual_review_required"],
                 "tender_id": f"sidbi:{slug_key[:64]}",
                 "reference_number": ref_no,
                 "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
@@ -1058,7 +1307,7 @@ def parse_sidbi_tender_rows(html: str, base_url: str = "https://www.sidbi.in/en/
                 "eligibility": "Refer to official SIDBI RFP / Empanelment tender notice",
                 "financial_details": f"Estimated Value: {NOT_PUBLISHED}; EMD: {NOT_PUBLISHED}",
                 "application_method": "Submission as specified in SIDBI official tender notice (www.sidbi.in/en/tenders)",
-                "tender_status": evaluate_tender_status(close_d, pub_d),
+                "tender_status": t_status,
             }
             if pub_d:
                 fields["published_date"] = pub_d.isoformat()
@@ -1085,7 +1334,7 @@ def parse_sidbi_tender_rows(html: str, base_url: str = "https://www.sidbi.in/en/
                     raw_text=raw_text,
                     fields=fields,
                     claims=claims,
-                    subcategory=t_cat.lower(),
+                    subcategory=notice_cls["subcategory"] or t_cat.lower(),
                 )
             )
     return items
@@ -1099,7 +1348,8 @@ def sidbi_tenders(source: Source, ctx: ScanContext) -> list[ExtractedItem]:
     ctx.step(
         "sidbi_tenders.parsed",
         total_rows=len(items),
-        active_rfps=sum(1 for i in items if not i.skip_reason),
+        active_rfps=sum(1 for i in items if not i.skip_reason and i.fields.get("routed_category") != "funding"),
+        routed_funding=sum(1 for i in items if not i.skip_reason and i.fields.get("routed_category") == "funding"),
         skipped_sarfaesi=sum(1 for i in items if i.skip_reason),
     )
     return items
@@ -1112,7 +1362,7 @@ class TenderScout(BaseAgent):
     config = AgentConfig(
         category="tender",
         mandatory_fields=["title", "original_url", "reference_number"],
-        subcategories=["goods", "services", "works", "consultancy", "empanelment", "procurement"],
+        subcategories=["goods", "services", "works", "consultancy", "empanelment", "procurement", "under_review"],
     )
     parsers = {
         "gem_public_bids": gem_public_bids,
@@ -1122,6 +1372,8 @@ class TenderScout(BaseAgent):
 
     def validate(self, item: ExtractedItem) -> list[str]:
         issues = super().validate(item)
+        if item.fields.get("routed_category") == "funding":
+            return issues
         if not item.fields.get("sector"):
             issues.append("missing BECCI sector classification")
         if not item.fields.get("tender_status"):

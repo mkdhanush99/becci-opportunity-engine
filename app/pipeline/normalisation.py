@@ -52,6 +52,9 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
     opp_id = new_id()
     slug = f"{slugify(item.title)}-{opp_id[:8]}"
 
+    routed_cat = item.fields.get("routed_category")
+    category = routed_cat or (source.categories[0] if source.categories else "job")
+
     opp = Opportunity(
         id=opp_id,
         external_key=item.external_key,
@@ -59,7 +62,7 @@ def normalise_item(item: ExtractedItem, source: Source, agent_id: str, is_fixtur
         # Presentation fields
         title=item.title,
         description=item.fields.get("description") or (item.raw_text[:400] + "..." if len(item.raw_text) > 400 else item.raw_text),
-        category=source.categories[0] if source.categories else "job",
+        category=category,
         subcategory=item.subcategory,
         # Organisation
         issuing_organisation=item.fields.get("issuing_organisation") or source.issuing_organisation or source.name,

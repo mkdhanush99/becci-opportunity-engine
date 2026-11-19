@@ -16,6 +16,7 @@ from app.agents.tender_scout import (
     build_gem_item_from_doc,
     classify_geography,
     classify_sector,
+    classify_sidbi_notice,
     evaluate_tender_status,
     extract_eligibility_intelligence,
     parse_cppp_detail_page,
@@ -448,3 +449,189 @@ def test_phase1_agents_regression():
     real_mpsc = [i for i in mpsc_items if not i.skip_reason]
     assert len(real_mpsc) == 1
     assert real_mpsc[0].fields["published_date"] == "2026-10-23"
+
+
+# --------------------------------------------------------------------------- 21-24. Phase 2 Acceptance Audit Remediation Tests
+def test_remediation_1_it_sector_keyword_classification():
+    # Three SIDBI IT opportunities must classify under IT and technology
+    t1 = "Request for Proposal for Procurement of High-End Laptops"
+    t2 = "Request for Proposal for Technology refresh of Security Solutions"
+    t3 = "Renewal of Subscription of M365 Licenses"
+
+    assert classify_sector(t1, product_category=t1, tender_category="Goods", title=t1) == BECCISector.IT_TECHNOLOGY.value
+    assert classify_sector(t2, product_category=t2, tender_category="Goods", title=t2) == BECCISector.IT_TECHNOLOGY.value
+    assert classify_sector(t3, product_category=t3, tender_category="Goods", title=t3) == BECCISector.IT_TECHNOLOGY.value
+
+    # Guard against broad matching: physical security agency & general goods must not misclassify as IT
+    physical_sec = "Hiring of Security Agency at SIDBI Lucknow"
+    assert (
+        classify_sector(physical_sec, product_category=physical_sec, tender_category="Services", title=physical_sec)
+        == BECCISector.SERVICES.value
+    )
+
+
+def test_remediation_2_product_category_precedence_over_buyer_ministry():
+    # GeM record GEM/2025/B/5894420: Interactive Display Screen 86 inch bought by Ministry of Health and Family Welfare
+    gem_doc = {
+        "b_id": [7318868],
+        "b_bid_number": ["GEM/2025/B/5894420"],
+        "b_bid_type": [1],
+        "bd_category_name": ["Interactive Display Screen 86 inch"],
+        "b_total_quantity": [2],
+        "ba_official_details_minName": ["Ministry of Health and Family Welfare"],
+        "ba_official_details_deptName": ["Department of Health and Family Welfare"],
+        "final_start_date_sort": ["2025-01-30T16:40:09Z"],
+        "final_end_date_sort": ["2026-11-30T17:00:00Z"],
+    }
+    pdf_excerpt = """
+    Ministry/State Name Ministry of Health and Family Welfare
+    Department Name Department of Health and Family Welfare
+    Organisation Name All India Institute of Medical Sciences (AIIMS) Office Name Raipur
+    Item Category Interactive Display Screen 86 inch
+    """
+    item = build_gem_item_from_doc(gem_doc, pdf_str=pdf_excerpt)
+    assert item.fields["sector"] == BECCISector.IT_TECHNOLOGY.value
+    assert item.fields["industry"] == BECCISector.IT_TECHNOLOGY.value
+
+    # Genuine healthcare product from the same ministry still classifies as Healthcare
+    assert (
+        classify_sector(
+            "Supply of Laparoscopic Surgery Set",
+            product_category="Medical Equipments",
+            tender_category="Goods",
+            title="Supply of Laparoscopic Surgery Set",
+            buyer_text="Ministry of Health and Family Welfare",
+        )
+        == BECCISector.HEALTHCARE.value
+    )
+
+    # CPPP TIFR Miscellaneous Goods tender does not regress to Education due to buyer 'Institute'
+    assert (
+        classify_sector(
+            "87-217 G Plan Apo 50X Objective Mitutoyo Microscope Objective",
+            product_category="Miscellaneous Goods",
+            tender_category="Goods",
+            title="87-217 G Plan Apo 50X Objective Mitutoyo Microscope Objective",
+            buyer_text="Tata Institute of Fundamental Research",
+        )
+        == BECCISector.TRADING_DISTRIBUTION.value
+    )
+
+
+def test_remediation_3_gem_pdf_bilingual_turnover_variants_and_org_na_guard():
+    # Variant 1: Bidder Average Annual Turnover only
+    pdf_bidder = """
+    Organisation Name Indian Army Office Name ***
+    Minimum Average Annual Turnover of the bidder (For the last 3 Financial Years) 10 Lakh (s)
+    """
+    f1, c1 = parse_gem_pdf_details(pdf_bidder)
+    assert f1["turnover_field_variant"] == "bidder_average_annual_turnover"
+    assert f1["bidder_turnover_requirement"] == "10 Lakh (s)"
+    assert "oem_turnover_requirement" not in f1
+    assert f1["turnover_requirement"] == "10 Lakh (s)"
+    assert f1["organisation_name"] == "Indian Army"
+
+    # Variant 2: OEM Average Turnover (Last 3 Years) + Organisation Name: N/a
+    pdf_oem = """
+    Ministry/State Name Uttar Pradesh
+    Department Name Urban Development Department Uttar Pradesh
+    Organisation Name N/a Office Name Nagar Nigam Aligarh
+    OEM Average Turnover (Last 3 Years) 10 Lakh (s)
+    Years of Past Experience Required for same/similar service 3 Year (s)
+    """
+    f2, c2 = parse_gem_pdf_details(pdf_oem)
+    assert f2["turnover_field_variant"] == "oem_average_turnover_3yr"
+    assert f2["oem_turnover_requirement"] == "10 Lakh (s)"
+    assert "bidder_turnover_requirement" not in f2
+    assert f2["turnover_requirement"] == "OEM Average Turnover (Last 3 Years): 10 Lakh (s)"
+    assert "organisation_name" not in f2
+    assert not any(cl.field == "issuing_organisation" for cl in c2)
+    assert any(cl.field == "oem_turnover_requirement" for cl in c2)
+
+    # Variant 3: Both Bidder Turnover and OEM Average Turnover present -> kept distinct
+    pdf_both = """
+    Minimum Average Annual Turnover of the bidder (For the last 3 Financial Years) 5 Lakh (s)
+    OEM Average Turnover (Last 3 Years) 25 Lakh (s)
+    """
+    f3, c3 = parse_gem_pdf_details(pdf_both)
+    assert f3["turnover_field_variant"] == "both_bidder_and_oem_turnover"
+    assert f3["bidder_turnover_requirement"] == "5 Lakh (s)"
+    assert f3["oem_turnover_requirement"] == "25 Lakh (s)"
+    assert "Bidder Turnover: 5 Lakh (s)" in f3["turnover_requirement"]
+    assert "OEM Average Turnover (Last 3 Years): 25 Lakh (s)" in f3["turnover_requirement"]
+
+    # Variant 4: Missing / invalid turnover -> do not infer
+    pdf_missing = """
+    Organisation Name N/A Office Name Test Office
+    EMD Detail Required No
+    """
+    f4, c4 = parse_gem_pdf_details(pdf_missing)
+    assert "turnover_field_variant" not in f4
+    assert "turnover_requirement" not in f4
+    assert "organisation_name" not in f4
+
+
+def test_remediation_4_sidbi_notice_classification_and_routing():
+    # 1. Genuine procurement RFP
+    c_rfp = classify_sidbi_notice("Request for Proposal for Procurement of High-End Laptops")
+    assert c_rfp["notice_type"] == "procurement_rfp"
+    assert c_rfp["routed_category"] == "tender"
+    assert c_rfp["is_tender"] is True
+
+    # 2. Vendor empanelment
+    c_emp = classify_sidbi_notice("Empanelment of Implementing Agencies (IAs) under the MoRE Program")
+    assert c_emp["notice_type"] == "vendor_empanelment"
+    assert c_emp["routed_category"] == "tender"
+    assert c_emp["tender_category"] == "Empanelment"
+
+    # 3. Innovation challenge fund
+    c_icf = classify_sidbi_notice("SIDBI Innovation Challenge Fund 2nd Cohort Applications Open")
+    assert c_icf["notice_type"] == "innovation_challenge_fund"
+    assert c_icf["routed_category"] == "funding"
+    assert c_icf["subcategory"] == "innovation_challenge"
+    assert c_icf["is_tender"] is False
+
+    # 4. Funding application announcement
+    c_fund = classify_sidbi_notice("Seed Fund Applications Open for MSME CleanTech Cohort")
+    assert c_fund["notice_type"] == "funding_application_announcement"
+    assert c_fund["routed_category"] == "funding"
+    assert c_fund["subcategory"] == "funding_programme"
+    assert c_fund["is_tender"] is False
+
+    # 5. Ambiguous SIDBI notice
+    c_amb = classify_sidbi_notice("General Institutional Stakeholder Consultation Notice 2026")
+    assert c_amb["notice_type"] == "ambiguous_sidbi_notice"
+    assert c_amb["manual_review_required"] is True
+
+    # Verify end-to-end HTML table parsing and normalisation for all 5 types
+    html = """
+    <html><body><table>
+      <tr><th>S. No.</th><th>Title</th><th>Tender Date</th><th>Last Date</th><th>Remark</th></tr>
+      <tr><td>1</td><td><a href="tenders/rfp-laptops">Request for Proposal for Procurement of High-End Laptops</a></td><td>04/11/2026</td><td>25/11/2026</td><td></td></tr>
+      <tr><td>2</td><td><a href="tenders/emp-more">Empanelment of Implementing Agencies (IAs) under the MoRE Program</a></td><td>16/11/2026</td><td>08/12/2026</td><td></td></tr>
+      <tr><td>3</td><td><a href="tenders/icf-2nd-cohort">SIDBI Innovation Challenge Fund 2nd Cohort Applications Open</a></td><td>30/10/2026</td><td>30/11/2026</td><td></td></tr>
+      <tr><td>4</td><td><a href="tenders/seed-fund-open">Seed Fund Applications Open for MSME CleanTech Cohort</a></td><td>01/11/2026</td><td>30/11/2026</td><td></td></tr>
+      <tr><td>5</td><td><a href="tenders/general-notice">General Institutional Stakeholder Consultation Notice 2026</a></td><td>05/11/2026</td><td>28/11/2026</td><td></td></tr>
+    </table></body></html>
+    """
+    parsed = parse_sidbi_tender_rows(html)
+    assert len(parsed) == 5
+
+    with session_scope() as session:
+        src = session.get(Source, "sidbi-tenders")
+        opp_rfp = normalise_item(parsed[0], src, "tender_scout", is_fixture=True)
+        opp_emp = normalise_item(parsed[1], src, "tender_scout", is_fixture=True)
+        opp_icf = normalise_item(parsed[2], src, "tender_scout", is_fixture=True)
+        opp_fnd = normalise_item(parsed[3], src, "tender_scout", is_fixture=True)
+        opp_amb = normalise_item(parsed[4], src, "tender_scout", is_fixture=True)
+
+        assert opp_rfp.category == "tender" and opp_rfp.tender_detail is not None
+        assert opp_rfp.tender_detail.sector == BECCISector.IT_TECHNOLOGY.value
+        assert opp_emp.category == "tender" and opp_emp.tender_detail.tender_category == "Empanelment"
+        assert opp_icf.category == "funding" and opp_icf.subcategory == "innovation_challenge"
+        assert opp_icf.tender_detail is None and len(opp_icf.evidence) >= 4
+        assert opp_fnd.category == "funding" and opp_fnd.subcategory == "funding_programme"
+        assert opp_fnd.tender_detail is None and len(opp_fnd.evidence) >= 4
+        assert opp_amb.category == "tender" and opp_amb.tender_detail.tender_status == TenderStatus.UNDER_VERIFICATION.value
+        assert opp_amb.tender_detail.eligibility_intelligence["ambiguous_flag"] is True
+

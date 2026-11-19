@@ -206,3 +206,20 @@ Executed `PYTHONPATH=. pytest -v --cov=app --cov-report=term-missing`:
 
 ### **FINAL VERDICT: APPROVED WITH CONDITIONS**
 Phase 2 is verified as genuine, secure, and dependable. The four non-blocking parser/classifier refinements listed in Section 7 should be applied prior to or at the start of Phase 3.
+
+---
+
+## 9. Remediation Addendum (Dated: 2026-11-19)
+
+> Note: The original independent audit findings and verdict above (`APPROVED WITH CONDITIONS`) are preserved unchanged for audit traceability.
+
+All four remediation conditions documented in Section 7 have been resolved and verified on **2026-11-19** (full details in `docs/PHASE_2_REMEDIATION_REPORT.md`):
+
+1. **Remediation 1 — IT Sector Keyword Classification:** Updated `BECCISector.IT_TECHNOLOGY` in `app/agents/tender_scout.py` and re-classified the three SIDBI IT RFPs (`83faf0378e124a11b2f860818fbb82ce`, `abb0ff24896d4045b719b6604e8ab8c0`, `0a6237c965c04d63b43cdf7f83bfb223`) to `IT and technology` in-place.
+2. **Remediation 2 — Product Category Precedence:** Refactored `classify_sector()` to enforce strict precedence (`Product category` → `Tender title` → `Technical description` → `Buyer/ministry` → `Tender category fallback`). Re-classified `GEM/2025/B/5894420` (`ecfe1d2cc2ae4d6585cd724b6ab9b464`, *Interactive Display Screen 86 inch*) from `Healthcare` to `IT and technology` with zero regressions across the remaining 24 tenders.
+3. **Remediation 3 — GeM PDF Bilingual Field Variants:** Updated `parse_gem_pdf_details()` to extract `OEM Average Turnover (Last 3 Years)` distinctly from `Minimum Average Annual Turnover of the bidder`, record `turnover_field_variant`, never infer missing turnover values, and reject placeholder `Organisation Name: N/a`. Updated `GEM/2026/B/8055173` (`ee79801946724b60a19dc0d4fdae017a`) in-place to `OEM Average Turnover (Last 3 Years): 10 Lakh (s)` (`oem_average_turnover_3yr`).
+4. **Remediation 4 — SIDBI Challenge Fund Classification:** Implemented `classify_sidbi_notice()` and category-aware normalisation in `app/pipeline/normalisation.py`. Routed `SIDBI Innovation Challenge Fund 2nd Cohort Applications Open` (`dd9dde49fdf94b128ed7128900dd396a`) in-place to `category = "funding"` (`subcategory = "innovation_challenge"`), removing its `tender_details` row while preserving all 5 evidence rows and all 35 opportunities in `data/becci.db`.
+5. **Verification & Regression Suite:** Re-verified all 6 modified records via Agent 07 (`official_confirmed`), verified 34/34 pytest tests passing (74% overall coverage, 82% on `tender_scout.py`) on isolated `data/test_becci.db`, and confirmed post-restart API health and public/admin isolation.
+
+**Updated Readiness Status:** **ALL CONDITIONS RESOLVED — READY FOR PHASE 3**
+
