@@ -1,0 +1,141 @@
+"""Source Registry initialisation seeds."""
+from __future__ import annotations
+
+from sqlalchemy.orm import Session
+from app.enums import CollectionMethod, SourceReliability, SourceSupport
+from app.models import Source
+
+SEEDED_SOURCES: list[dict] = [
+    {
+        "id": "tgpsc-whats-new",
+        "name": "Telangana Public Service Commission - What's New",
+        "domain": "websitenew.tgpsc.gov.in",
+        "url": "https://websitenew.tgpsc.gov.in/",
+        "agent_id": "job_scout",
+        "parser": "tgpsc_whats_new",
+        "categories": ["job"],
+        "geographic_coverage": ["Telangana"],
+        "industry_relevance": ["Public Sector", "Civil Administration", "Engineering"],
+        "collection_method": CollectionMethod.HTTP_HTML,
+        "reliability": SourceReliability.OFFICIAL_GOVERNMENT,
+        "issuing_organisation": "Telangana Public Service Commission (TGPSC)",
+        "official_domains": ["tgpsc.gov.in", "websitenew.tgpsc.gov.in"],
+        "support_status": SourceSupport.SUPPORTED,
+        "access_notes": "Public recruitment notices and gazetted notifications published for citizen awareness.",
+        "scan_frequency_minutes": 360,
+        "active": True,
+        "config": {"doc_limit": 4},
+    },
+    {
+        "id": "mpsc-advertisements",
+        "name": "Maharashtra Public Service Commission - Advertisements",
+        "domain": "mpsc.gov.in",
+        "url": "https://mpsc.gov.in/adv_notification/8",
+        "agent_id": "job_scout",
+        "parser": "mpsc_advertisements",
+        "categories": ["job"],
+        "geographic_coverage": ["Maharashtra"],
+        "industry_relevance": ["Public Sector", "Judicial", "Administrative"],
+        "collection_method": CollectionMethod.BROWSER,
+        "reliability": SourceReliability.OFFICIAL_GOVERNMENT,
+        "issuing_organisation": "Maharashtra Public Service Commission (MPSC)",
+        "official_domains": ["mpsc.gov.in"],
+        "support_status": SourceSupport.SUPPORTED,
+        "access_notes": "Requires client-side JS DOM rendering via headless browser.",
+        "scan_frequency_minutes": 360,
+        "active": True,
+        "config": {},
+    },
+    {
+        "id": "nbcfdc-schemes",
+        "name": "National Backward Classes Finance & Development Corporation - Schemes",
+        "domain": "nbcfdc.gov.in",
+        "url": "https://nbcfdc.gov.in/nbcfdc/web/en",
+        "agent_id": "funding_scout",
+        "parser": "nbcfdc_schemes",
+        "categories": ["funding"],
+        "geographic_coverage": ["National"],
+        "industry_relevance": ["Microenterprises", "Backward Classes", "Self-Employment"],
+        "collection_method": CollectionMethod.HTTP_HTML,
+        "reliability": SourceReliability.OFFICIAL_GOVERNMENT,
+        "issuing_organisation": "National Backward Classes Finance & Development Corporation (NBCFDC)",
+        "official_domains": ["nbcfdc.gov.in"],
+        "support_status": SourceSupport.SUPPORTED,
+        "access_notes": "Official Central Govt undertaking under Ministry of Social Justice & Empowerment.",
+        "scan_frequency_minutes": 720,
+        "active": True,
+        "config": {"max_subpages": 3},
+    },
+    {
+        "id": "sidbi-schemes",
+        "name": "Small Industries Development Bank of India - Schemes & Direct Finance",
+        "domain": "www.sidbi.in",
+        "url": "https://www.sidbi.in/sitemap.xml",
+        "agent_id": "funding_scout",
+        "parser": "sidbi_schemes",
+        "categories": ["funding"],
+        "geographic_coverage": ["National"],
+        "industry_relevance": ["MSME", "Manufacturing", "Green Energy", "Services"],
+        "collection_method": CollectionMethod.SITEMAP,
+        "reliability": SourceReliability.OFFICIAL_GOVERNMENT,
+        "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
+        "official_domains": ["sidbi.in", "www.sidbi.in"],
+        "support_status": SourceSupport.SUPPORTED,
+        "access_notes": "Discovers MSME financing via official XML sitemap with explicit crawler permissions.",
+        "scan_frequency_minutes": 720,
+        "active": True,
+        "config": {"max_subpages": 3},
+    },
+    {
+        "id": "upsc-recruitment",
+        "name": "Union Public Service Commission",
+        "domain": "upsc.gov.in",
+        "url": "https://upsc.gov.in/recruitment/recruitment-advertisement",
+        "agent_id": "job_scout",
+        "parser": "unsupported",
+        "categories": ["job"],
+        "geographic_coverage": ["National"],
+        "industry_relevance": ["Civil Services", "Central Government"],
+        "collection_method": CollectionMethod.HTTP_HTML,
+        "reliability": SourceReliability.OFFICIAL_GOVERNMENT,
+        "issuing_organisation": "Union Public Service Commission (UPSC)",
+        "official_domains": ["upsc.gov.in"],
+        "support_status": SourceSupport.UNSUPPORTED,
+        "access_notes": "Akamai EdgeSuite WAF returns HTTP 403 Access Denied to automated retrieval. Never bypassed.",
+        "scan_frequency_minutes": 1440,
+        "active": False,
+        "config": {},
+    },
+    {
+        "id": "msme-ministry",
+        "name": "Ministry of Micro, Small and Medium Enterprises",
+        "domain": "msme.gov.in",
+        "url": "https://msme.gov.in/",
+        "agent_id": "funding_scout",
+        "parser": "unsupported",
+        "categories": ["funding"],
+        "geographic_coverage": ["National"],
+        "industry_relevance": ["MSME", "Khadi", "Coir"],
+        "collection_method": CollectionMethod.HTTP_HTML,
+        "reliability": SourceReliability.OFFICIAL_GOVERNMENT,
+        "issuing_organisation": "Ministry of MSME, Govt of India",
+        "official_domains": ["msme.gov.in"],
+        "support_status": SourceSupport.UNSUPPORTED,
+        "access_notes": "Akamai EdgeSuite WAF returns HTTP 403 on robots.txt and portal roots. Marked unsupported.",
+        "scan_frequency_minutes": 1440,
+        "active": False,
+        "config": {},
+    },
+]
+
+
+def seed_sources(session: Session) -> int:
+    created = 0
+    for s_data in SEEDED_SOURCES:
+        existing = session.get(Source, s_data["id"])
+        if not existing:
+            source = Source(**s_data)
+            session.add(source)
+            created += 1
+    session.commit()
+    return created
