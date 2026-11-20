@@ -8,4 +8,10 @@ __pycache__/
 *-wal
 *.backup*
 data/test_becci*
+data/*.db-shm
+data/*.db-wal
 .env
+.DS_Store
+
+# Intermediate video rendering frames
+brag-output/work/

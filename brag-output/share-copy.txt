@@ -1,0 +1,5 @@
+Thousands of crores in government procurement and welfare grants go unclaimed because they're buried in fragmented gazettes and unstandardized PDFs.
+
+We built the BECCI Opportunity Intelligence Engine: an autonomous multi-cadence scouting platform combining Apify web crawlers, DeepSeek AI document parsing, and deterministic anti-hallucination verification to surface Pan-India tenders and state-specific grants for OBC and MSME entrepreneurs in real time.
+
+Live API engine running 24/7 at becci-api.azurewebsites.net | Public portal at becci.in
