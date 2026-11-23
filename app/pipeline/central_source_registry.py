@@ -197,7 +197,7 @@ OFFICIAL_SOURCE_DEFINITIONS: list[dict[str, Any]] = [
         "supported_methods": ["official_api", "document"],
         "auth_requirements": "none",
         "update_frequency_minutes": 720,
-        "terms_notes": "Jagananna Videshi Vidya Deevena, Vidya Deevena, and Vasathi Deevena for BCs.",
+        "terms_notes": "Post-Matric Fee Reimbursement (RTF), Maintenance Fee (MTF), and NTR Videshi Vidyadharana for BCs.",
         "known_limitations": "MeeSeva integrated authentication required for beneficiary application."
     },
     {

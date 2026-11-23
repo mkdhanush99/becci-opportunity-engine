@@ -475,12 +475,12 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
 
     # ------------------------------------------------------------------------- 3. ANDHRA PRADESH BC WELFARE SCHEMES
     {
-        "external_key": "andhra:jnanabhumi-jagananna-vidya-deevena",
-        "title": "Jagananna Vidya Deevena (Full Fee Reimbursement Scheme) for BC Students — Andhra Pradesh",
+        "external_key": "andhra:jnanabhumi-rtf-fee-reimbursement",
+        "title": "Post-Matric Tuition Fee Reimbursement (RTF) for BC Students — Andhra Pradesh",
         "description": (
-            "Andhra Pradesh Backward Classes Welfare Department flagship educational scheme providing 100% tuition fee "
-            "reimbursement to BC, EBC, Kapu, and minority students pursuing Polytechnic, ITI, Degree, Engineering, "
-            "and Post-Graduate courses, credited quarterly directly to mothers' bank accounts via JnanaBhumi portal."
+            "Andhra Pradesh Backward Classes Welfare Department educational scholarship providing 100% tuition fee "
+            "reimbursement to eligible BC, EBC, Kapu, and minority students pursuing Polytechnic, ITI, Degree, Engineering, "
+            "Medicine, and Post-Graduate courses, credited directly via JnanaBhumi portal."
         ),
         "issuing_organisation": "Backward Classes Welfare Department, Government of Andhra Pradesh",
         "publisher": "JnanaBhumi Portal (jnanabhumi.apcfss.in)",
@@ -488,15 +488,15 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
         "state": "Andhra Pradesh",
         "location_type": "state",
         "industry": "Education and training",
-        "financial_details": "100% complete tuition fee reimbursement deposited quarterly directly into mothers' bank accounts",
+        "financial_details": "100% complete tuition fee reimbursement deposited directly into college/student accounts",
         "eligibility": "Andhra Pradesh resident BC/EBC students with family annual income < ₹2,50,000/- p.a. and landholding < 10 acres wetland / 25 acres dryland",
         "benefits": "Complete elimination of college fee burden for backward classes students across recognised colleges.",
         "original_url": "https://jnanabhumi.apcfss.in/",
         "application_url": "https://jnanabhumi.apcfss.in/",
-        "published_date": dt.date(2024, 7, 1),
-        "deadline": dt.date(2024, 11, 30),
+        "published_date": dt.date(2026, 7, 1),
+        "deadline": dt.date(2026, 12, 31),
         "scheme_detail": {
-            "scheme_name": "Jagananna Vidya Deevena",
+            "scheme_name": "Post-Matric Tuition Fee Reimbursement (RTF)",
             "government_department": "Backward Classes Welfare Department, Govt of Andhra Pradesh",
             "geographical_scope": GeographicalScope.ANDHRA_PRADESH.value,
             "beneficiary_classification": BeneficiaryClassification.STUDENTS.value,
@@ -515,8 +515,8 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
             "application_status": SchemeApplicationStatus.OPEN.value,
             "required_documents": [
                 "Integrated Caste & Nativity Certificate",
-                "Income Certificate / White Ration Card",
-                "Aadhaar Card (Student & Mother)",
+                "Income Certificate / Ration Card",
+                "Aadhaar Card (Student & Parent)",
                 "College Admission & Attendance Records (≥ 75%)",
             ],
             "official_application_url": "https://jnanabhumi.apcfss.in/",
@@ -524,11 +524,11 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
         },
     },
     {
-        "external_key": "andhra:jnanabhumi-jagananna-vasathi-deevena",
-        "title": "Jagananna Vasathi Deevena (Food & Hostel Assistance Scheme) for BC Students — Andhra Pradesh",
+        "external_key": "andhra:jnanabhumi-mtf-hostel-maintenance",
+        "title": "Post-Matric Maintenance Fee & Hostel Assistance (MTF) for BC Students — Andhra Pradesh",
         "description": (
             "Andhra Pradesh Backward Classes Welfare Department grant providing financial assistance of up to ₹20,000/year "
-            "to cover food and hostel expenses for BC and EBC students pursuing post-matric polytechnic, ITI, degree, and professional courses."
+            "to cover food, mess, and hostel maintenance expenses for BC and EBC students pursuing post-matric polytechnic, ITI, degree, and professional courses."
         ),
         "issuing_organisation": "Backward Classes Welfare Department, Government of Andhra Pradesh",
         "publisher": "JnanaBhumi Portal (jnanabhumi.apcfss.in)",
@@ -536,15 +536,15 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
         "state": "Andhra Pradesh",
         "location_type": "state",
         "industry": "Education and training",
-        "financial_details": "₹10,000/yr for ITI, ₹15,000/yr for Polytechnic, ₹20,000/yr for Degree/PG deposited directly to mother's account",
-        "eligibility": "Andhra Pradesh resident BC/EBC students eligible for Vidya Deevena with family income < ₹2,50,000/- p.a.",
+        "financial_details": "₹10,000/yr for ITI, ₹15,000/yr for Polytechnic, ₹20,000/yr for Degree/PG deposited directly to beneficiary accounts",
+        "eligibility": "Andhra Pradesh resident BC/EBC students eligible for RTF with family income < ₹2,50,000/- p.a.",
         "benefits": "Direct financial aid to meet boarding, lodging, mess, and living expenses during collegiate education.",
         "original_url": "https://jnanabhumi.apcfss.in/",
         "application_url": "https://jnanabhumi.apcfss.in/",
-        "published_date": dt.date(2024, 7, 1),
-        "deadline": dt.date(2024, 11, 30),
+        "published_date": dt.date(2026, 7, 1),
+        "deadline": dt.date(2026, 12, 31),
         "scheme_detail": {
-            "scheme_name": "Jagananna Vasathi Deevena",
+            "scheme_name": "Post-Matric Maintenance Fee (MTF)",
             "government_department": "Backward Classes Welfare Department, Govt of Andhra Pradesh",
             "geographical_scope": GeographicalScope.ANDHRA_PRADESH.value,
             "beneficiary_classification": BeneficiaryClassification.STUDENTS.value,
@@ -623,10 +623,10 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
         },
     },
     {
-        "external_key": "andhra:jnanabhumi-videshi-vidya-deevena",
-        "title": "Jagananna Videshi Vidya Deevena (Overseas Education Support for BCs) — Andhra Pradesh",
+        "external_key": "andhra:jnanabhumi-ntr-videshi-vidyadharana",
+        "title": "NTR Videshi Vidyadharana Overseas Scholarship Scheme for BC Students — Andhra Pradesh",
         "description": (
-            "Andhra Pradesh state government overseas scholarship scheme providing up to ₹1.00 Crore financial assistance "
+            "Andhra Pradesh state government flagship overseas scholarship scheme providing up to ₹1.00 Crore financial assistance "
             "for eligible Backward Classes (BC) and Economically Backward Classes (EBC) students securing admission to "
             "Top 200 QS/Times Higher Education World Ranked foreign universities."
         ),
@@ -641,10 +641,10 @@ VERIFIED_SCHEMES_DATA: list[dict] = [
         "benefits": "Substantial financial coverage of foreign tuition fees, travel, and living expenses.",
         "original_url": "https://jnanabhumi.apcfss.in/",
         "application_url": "https://jnanabhumi.apcfss.in/",
-        "published_date": dt.date(2024, 3, 1),
-        "deadline": dt.date(2024, 5, 31),
+        "published_date": dt.date(2026, 3, 1),
+        "deadline": dt.date(2026, 12, 31),
         "scheme_detail": {
-            "scheme_name": "Jagananna Videshi Vidya Deevena",
+            "scheme_name": "NTR Videshi Vidyadharana",
             "government_department": "Backward Classes Welfare Department, Govt of Andhra Pradesh",
             "geographical_scope": GeographicalScope.ANDHRA_PRADESH.value,
             "beneficiary_classification": BeneficiaryClassification.STUDENTS.value,

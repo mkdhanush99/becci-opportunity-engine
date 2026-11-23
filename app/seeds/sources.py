@@ -121,7 +121,7 @@ SEEDED_SOURCES: list[dict] = [
         "issuing_organisation": "Backward Classes Welfare Department, Government of Andhra Pradesh",
         "official_domains": ["jnanabhumi.apcfss.in", "apobmms.apcfss.in"],
         "support_status": SourceSupport.SUPPORTED,
-        "access_notes": "Jagananna Vidya Deevena, Vasathi Deevena, and Videshi Vidya Deevena.",
+        "access_notes": "Post-Matric Scholarship (RTF/MTF) and NTR Videshi Vidyadharana Overseas Scholarship.",
         "scan_frequency_minutes": 720,
         "active": True,
         "config": {},
