@@ -58,7 +58,16 @@ class BrowserEngine:
         if not acquired:
             raise FetchError("browser concurrency limit reached; try later")
         try:
-            return asyncio.run(self._render(u, wait_for_selector, extra_wait_ms))
+            try:
+                return asyncio.run(self._render(u, wait_for_selector, extra_wait_ms))
+            except Exception as e:
+                err_str = str(e).lower()
+                if "executable doesn't exist" in err_str or "playwright install" in err_str or "launch" in err_str:
+                    from app.fetch.http_fetcher import HttpFetcher
+                    fetcher = HttpFetcher(self.allowed, robots=self.robots, check_dns=self.check_dns)
+                    resp = fetcher.get(u)
+                    return RenderedPage(url=u, final_url=resp.final_url, status=resp.status, html=resp.text, method="http_fallback")
+                raise
         finally:
             _global_sem.release()
 

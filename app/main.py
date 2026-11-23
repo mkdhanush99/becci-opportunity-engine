@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.admin import router as admin_router
+from app.api.crawler import router as crawler_router
 from app.api.member import router as member_router
 from app.api.public import router as public_router
 from app.api.webhooks import router as webhooks_router
@@ -69,6 +70,7 @@ from fastapi.responses import FileResponse
 
 # Mount routes
 app.include_router(public_router)
+app.include_router(crawler_router)
 app.include_router(member_router)
 app.include_router(admin_router)
 app.include_router(webhooks_router)
