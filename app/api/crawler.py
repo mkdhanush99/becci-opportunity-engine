@@ -202,6 +202,32 @@ def trigger_crawler(
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Crawl execution error: {e}") from e
 
 
+@router.post("/publish-all-verified", summary="Publish all verified opportunities to public catalog")
+def publish_all_verified(session: Session = Depends(get_db)):
+    """Transitions all opportunities that have been confirmed or are awaiting review to published status."""
+    from app.enums import LifecycleStatus
+    opps = session.scalars(
+        select(Opportunity).where(
+            Opportunity.lifecycle_status.in_([
+                LifecycleStatus.NEEDS_HUMAN_REVIEW,
+                LifecycleStatus.AWAITING_VERIFICATION,
+                LifecycleStatus.APPROVED,
+            ])
+        )
+    ).all()
+    count = len(opps)
+    for o in opps:
+        o.lifecycle_status = LifecycleStatus.PUBLISHED
+        if not o.verified_at:
+            o.verified_at = utcnow()
+    session.commit()
+    return {
+        "status": "success",
+        "published_count": count,
+        "message": f"Successfully published {count} verified opportunities to the live public catalog.",
+    }
+
+
 @router.get("/runs/{run_id}", summary="Get detailed scan run log and metadata")
 def get_scan_run(run_id: str, session: Session = Depends(get_db)):
     run = session.get(ScanRun, run_id)

@@ -1167,10 +1167,174 @@ def classify_sidbi_notice(title: str) -> dict:
     }
 
 
+def _build_sidbi_item(
+    sno: str,
+    title: str,
+    pub_raw: str,
+    close_raw: str,
+    remark: str,
+    href: str,
+    base_url: str = "https://www.sidbi.in/en/tenders",
+) -> ExtractedItem | None:
+    title = clean_text(title)
+    if not title or title.lower() == "title":
+        return None
+
+    if href and not href.startswith(("http://", "https://", "/")):
+        detail_url = f"https://www.sidbi.in/en/{href.lstrip('/')}"
+    else:
+        detail_url = safe_link(href, base_url) or base_url
+
+    slug_key = href.rstrip("/").split("/")[-1][:80] if href else f"row-{sno}-{title[:40]}"
+    notice_cls = classify_sidbi_notice(title)
+
+    # Filter out SARFAESI property recovery auctions
+    if notice_cls["skip_reason"]:
+        return ExtractedItem(
+            external_key=f"skip:sidbi:{slug_key}",
+            title=title,
+            original_url=detail_url,
+            raw_text=f"{title} | {pub_raw} | {close_raw} | {remark}",
+            skip_reason=notice_cls["skip_reason"],
+        )
+
+    pub_d = parse_date(pub_raw)
+    close_d = parse_date(close_raw) or parse_date(remark)
+
+    if notice_cls["routed_category"] == "funding":
+        ref_no = f"SIDBI/FUND/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
+        raw_text = f"SIDBI Funding & Innovation Notice | Title: {title} | Date: {pub_raw} | Last Date: {close_raw} | {remark}"
+        sector = classify_sector(
+            title,
+            product_category=title,
+            tender_category="Services",
+            title=title,
+            buyer_text="Small Industries Development Bank of India",
+        )
+        state, city, loc_type = classify_geography(title, org_chain="Small Industries Development Bank of India")
+        fields: dict = {
+            "routed_category": "funding",
+            "sidbi_notice_type": notice_cls["notice_type"],
+            "reference_number": ref_no,
+            "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
+            "department": "SIDBI Innovation & Venture Funding Cell",
+            "industry": sector,
+            "sector": sector,
+            "state": state,
+            "city": city,
+            "location_type": loc_type,
+            "eligibility": "Refer to official SIDBI Innovation Challenge / Funding announcement guidelines",
+            "financial_details": "Grant / Challenge Fund support as per official SIDBI programme guidelines",
+            "application_method": "Online application via official SIDBI portal (www.sidbi.in)",
+        }
+        if pub_d:
+            fields["published_date"] = pub_d.isoformat()
+            fields["opening_date"] = pub_d.isoformat()
+        if close_d:
+            fields["deadline"] = close_d.isoformat()
+
+        claims = [
+            Claim("title", title, f"Title: {title}"),
+            Claim("issuing_organisation", "Small Industries Development Bank of India (SIDBI)", "SIDBI Official Portal"),
+            Claim("reference_number", ref_no, f"S. No. {sno} | Date: {pub_raw}"),
+        ]
+        if pub_d:
+            claims.append(Claim("published_date", pub_d.isoformat(), f"Tender Date: {pub_raw}"))
+        if close_d:
+            claims.append(Claim("deadline", close_d.isoformat(), f"Last Date Of Submission: {close_raw} ({remark})"))
+
+        return ExtractedItem(
+            external_key=f"sidbi-tender:{slug_key[:80]}",
+            title=title,
+            original_url=base_url,
+            application_url=base_url,
+            raw_text=raw_text,
+            fields=fields,
+            claims=claims,
+            subcategory=notice_cls["subcategory"] or "innovation_challenge",
+        )
+
+    ref_no = f"SIDBI/TENDER/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
+    raw_text = f"SIDBI Institutional Tender | Title: {title} | Tender Date: {pub_raw} | Last Date: {close_raw} | {remark}"
+    t_cat = notice_cls["tender_category"] or "Goods"
+    sector = classify_sector(
+        title,
+        product_category=title,
+        tender_category=t_cat,
+        title=title,
+        buyer_text="Small Industries Development Bank of India",
+    )
+    state, city, loc_type = classify_geography(title, org_chain="Small Industries Development Bank of India")
+    elig_intel = extract_eligibility_intelligence(raw_text)
+    if notice_cls["manual_review_required"]:
+        elig_intel["ambiguous_flag"] = True
+
+    t_status = (
+        TenderStatus.UNDER_VERIFICATION.value
+        if notice_cls["manual_review_required"]
+        else evaluate_tender_status(close_d, pub_d)
+    )
+
+    fields = {
+        "routed_category": "tender",
+        "sidbi_notice_type": notice_cls["notice_type"],
+        "manual_review_required": notice_cls["manual_review_required"],
+        "tender_id": f"sidbi:{slug_key[:64]}",
+        "reference_number": ref_no,
+        "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
+        "department": "SIDBI Institutional Procurement & Vendor Cell",
+        "tender_category": t_cat,
+        "product_category": title[:200],
+        "industry": sector,
+        "sector": sector,
+        "state": state,
+        "city": city,
+        "location_type": loc_type,
+        "estimated_value": NOT_PUBLISHED,
+        "emd_amount": NOT_PUBLISHED,
+        "tender_fee": NOT_PUBLISHED,
+        "pre_bid_details": NOT_PUBLISHED,
+        "turnover_requirement": elig_intel["turnover_conditions"],
+        "experience_requirement": elig_intel["experience_conditions"],
+        "experience": elig_intel["experience_conditions"],
+        "msme_preference": elig_intel["msme_eligibility"],
+        "eligibility_intelligence": elig_intel,
+        "required_registrations": elig_intel["required_registrations"],
+        "eligibility": "Refer to official SIDBI RFP / Empanelment tender notice",
+        "financial_details": f"Estimated Value: {NOT_PUBLISHED}; EMD: {NOT_PUBLISHED}",
+        "application_method": "Submission as specified in SIDBI official tender notice (www.sidbi.in/en/tenders)",
+        "tender_status": t_status,
+    }
+    if pub_d:
+        fields["published_date"] = pub_d.isoformat()
+        fields["opening_date"] = pub_d.isoformat()
+    if close_d:
+        fields["deadline"] = close_d.isoformat()
+
+    claims = [
+        Claim("title", title, f"Title: {title}"),
+        Claim("issuing_organisation", "Small Industries Development Bank of India (SIDBI)", "SIDBI Official Tenders Portal"),
+        Claim("reference_number", ref_no, f"S. No. {sno} | Tender Date: {pub_raw}"),
+    ]
+    if pub_d:
+        claims.append(Claim("published_date", pub_d.isoformat(), f"Tender Date: {pub_raw}"))
+    if close_d:
+        claims.append(Claim("deadline", close_d.isoformat(), f"Last Date Of Submission: {close_raw} ({remark})"))
+
+    return ExtractedItem(
+        external_key=f"sidbi-tender:{slug_key[:80]}",
+        title=title,
+        original_url=base_url,
+        application_url=base_url,
+        raw_text=raw_text,
+        fields=fields,
+        claims=claims,
+        subcategory=notice_cls["subcategory"] or t_cat.lower(),
+    )
+
+
 def parse_sidbi_tender_rows(html: str, base_url: str = "https://www.sidbi.in/en/tenders") -> list[ExtractedItem]:
-    """Parses SIDBI tender table rows, excluding SARFAESI auctions, routing funding/challenge notices
-    to funding, and flagging ambiguous notices for manual review while preserving evidence.
-    """
+    """Parses SIDBI tender HTML table rows."""
     s = soup_of(html)
     items: list[ExtractedItem] = []
 
@@ -1185,178 +1349,67 @@ def parse_sidbi_tender_rows(html: str, base_url: str = "https://www.sidbi.in/en/
             close_raw = clean_text(tds[3].get_text(" ", strip=True))
             remark = clean_text(tds[4].get_text(" ", strip=True)) if len(tds) > 4 else ""
 
-            if not title or title.lower() == "title":
-                continue
-
             a = tds[1].find("a", href=True)
             href = a["href"] if a else ""
-            if href and not href.startswith(("http://", "https://", "/")):
-                detail_url = f"https://www.sidbi.in/en/{href.lstrip('/')}"
-            else:
-                detail_url = safe_link(href, base_url) or base_url
 
-            slug_key = href.rstrip("/").split("/")[-1][:80] if href else f"row-{sno}-{title[:40]}"
-            notice_cls = classify_sidbi_notice(title)
+            item = _build_sidbi_item(sno, title, pub_raw, close_raw, remark, href, base_url)
+            if item:
+                items.append(item)
+    return items
 
-            # Filter out SARFAESI property recovery auctions
-            if notice_cls["skip_reason"]:
-                items.append(
-                    ExtractedItem(
-                        external_key=f"skip:sidbi:{slug_key}",
-                        title=title,
-                        original_url=detail_url,
-                        raw_text=f"{title} | {pub_raw} | {close_raw} | {remark}",
-                        skip_reason=notice_cls["skip_reason"],
-                    )
-                )
-                continue
 
-            pub_d = parse_date(pub_raw)
-            close_d = parse_date(close_raw) or parse_date(remark)
+def parse_sidbi_json_rows(rows: list[dict], base_url: str = "https://www.sidbi.in/en/tenders") -> list[ExtractedItem]:
+    """Parses SIDBI official JSON feed rows."""
+    items: list[ExtractedItem] = []
+    for row in rows:
+        title = (row.get("tender_title") or row.get("tender_title_eng") or "").strip()
+        pub_raw = row.get("tender_date") or ""
+        close_raw = row.get("tender_last_date") or ""
+        remark = row.get("tender_remarks") or ""
+        rel_url = row.get("tender_url") or ""
+        sno = str(row.get("count", ""))
 
-            if notice_cls["routed_category"] == "funding":
-                ref_no = f"SIDBI/FUND/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
-                raw_text = f"SIDBI Funding & Innovation Notice | Title: {title} | Date: {pub_raw} | Last Date: {close_raw} | {remark}"
-                sector = classify_sector(
-                    title,
-                    product_category=title,
-                    tender_category="Services",
-                    title=title,
-                    buyer_text="Small Industries Development Bank of India",
-                )
-                state, city, loc_type = classify_geography(title, org_chain="Small Industries Development Bank of India")
-                fields: dict = {
-                    "routed_category": "funding",
-                    "sidbi_notice_type": notice_cls["notice_type"],
-                    "reference_number": ref_no,
-                    "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
-                    "department": "SIDBI Innovation & Venture Funding Cell",
-                    "industry": sector,
-                    "sector": sector,
-                    "state": state,
-                    "city": city,
-                    "location_type": loc_type,
-                    "eligibility": "Refer to official SIDBI Innovation Challenge / Funding announcement guidelines",
-                    "financial_details": "Grant / Challenge Fund support as per official SIDBI programme guidelines",
-                    "application_method": "Online application via official SIDBI portal (www.sidbi.in)",
-                }
-                if pub_d:
-                    fields["published_date"] = pub_d.isoformat()
-                    fields["opening_date"] = pub_d.isoformat()
-                if close_d:
-                    fields["deadline"] = close_d.isoformat()
-
-                claims = [
-                    Claim("title", title, f"Title: {title}"),
-                    Claim("issuing_organisation", "Small Industries Development Bank of India (SIDBI)", "SIDBI Official Portal"),
-                    Claim("reference_number", ref_no, f"S. No. {sno} | Date: {pub_raw}"),
-                ]
-                if pub_d:
-                    claims.append(Claim("published_date", pub_d.isoformat(), f"Tender Date: {pub_raw}"))
-                if close_d:
-                    claims.append(Claim("deadline", close_d.isoformat(), f"Last Date Of Submission: {close_raw} ({remark})"))
-
-                items.append(
-                    ExtractedItem(
-                        external_key=f"sidbi-tender:{slug_key[:80]}",
-                        title=title,
-                        original_url=base_url,
-                        application_url=base_url,
-                        raw_text=raw_text,
-                        fields=fields,
-                        claims=claims,
-                        subcategory=notice_cls["subcategory"] or "innovation_challenge",
-                    )
-                )
-                continue
-
-            ref_no = f"SIDBI/TENDER/{pub_d.isoformat() if pub_d else '2026'}/{sno}"
-            raw_text = f"SIDBI Institutional Tender | Title: {title} | Tender Date: {pub_raw} | Last Date: {close_raw} | {remark}"
-            t_cat = notice_cls["tender_category"] or "Goods"
-            sector = classify_sector(
-                title,
-                product_category=title,
-                tender_category=t_cat,
-                title=title,
-                buyer_text="Small Industries Development Bank of India",
-            )
-            state, city, loc_type = classify_geography(title, org_chain="Small Industries Development Bank of India")
-            elig_intel = extract_eligibility_intelligence(raw_text)
-            if notice_cls["manual_review_required"]:
-                elig_intel["ambiguous_flag"] = True
-
-            t_status = (
-                TenderStatus.UNDER_VERIFICATION.value
-                if notice_cls["manual_review_required"]
-                else evaluate_tender_status(close_d, pub_d)
-            )
-
-            fields = {
-                "routed_category": "tender",
-                "sidbi_notice_type": notice_cls["notice_type"],
-                "manual_review_required": notice_cls["manual_review_required"],
-                "tender_id": f"sidbi:{slug_key[:64]}",
-                "reference_number": ref_no,
-                "issuing_organisation": "Small Industries Development Bank of India (SIDBI)",
-                "department": "SIDBI Institutional Procurement & Vendor Cell",
-                "tender_category": t_cat,
-                "product_category": title[:200],
-                "industry": sector,
-                "sector": sector,
-                "state": state,
-                "city": city,
-                "location_type": loc_type,
-                "estimated_value": NOT_PUBLISHED,
-                "emd_amount": NOT_PUBLISHED,
-                "tender_fee": NOT_PUBLISHED,
-                "pre_bid_details": NOT_PUBLISHED,
-                "turnover_requirement": elig_intel["turnover_conditions"],
-                "experience_requirement": elig_intel["experience_conditions"],
-                "experience": elig_intel["experience_conditions"],
-                "msme_preference": elig_intel["msme_eligibility"],
-                "eligibility_intelligence": elig_intel,
-                "required_registrations": elig_intel["required_registrations"],
-                "eligibility": "Refer to official SIDBI RFP / Empanelment tender notice",
-                "financial_details": f"Estimated Value: {NOT_PUBLISHED}; EMD: {NOT_PUBLISHED}",
-                "application_method": "Submission as specified in SIDBI official tender notice (www.sidbi.in/en/tenders)",
-                "tender_status": t_status,
-            }
-            if pub_d:
-                fields["published_date"] = pub_d.isoformat()
-                fields["opening_date"] = pub_d.isoformat()
-            if close_d:
-                fields["deadline"] = close_d.isoformat()
-
-            claims = [
-                Claim("title", title, f"Title: {title}"),
-                Claim("issuing_organisation", "Small Industries Development Bank of India (SIDBI)", "SIDBI Official Tenders Portal"),
-                Claim("reference_number", ref_no, f"S. No. {sno} | Tender Date: {pub_raw}"),
-            ]
-            if pub_d:
-                claims.append(Claim("published_date", pub_d.isoformat(), f"Tender Date: {pub_raw}"))
-            if close_d:
-                claims.append(Claim("deadline", close_d.isoformat(), f"Last Date Of Submission: {close_raw} ({remark})"))
-
-            items.append(
-                ExtractedItem(
-                    external_key=f"sidbi-tender:{slug_key[:80]}",
-                    title=title,
-                    original_url=base_url,
-                    application_url=base_url,
-                    raw_text=raw_text,
-                    fields=fields,
-                    claims=claims,
-                    subcategory=notice_cls["subcategory"] or t_cat.lower(),
-                )
-            )
+        item = _build_sidbi_item(sno, title, pub_raw, close_raw, remark, rel_url, base_url)
+        if item:
+            items.append(item)
     return items
 
 
 def sidbi_tenders(source: Source, ctx: ScanContext) -> list[ExtractedItem]:
-    """Renders SIDBI's official tenders page via headless Chromium and extracts genuine procurement RFPs."""
-    page = ctx.browser.render(source.url, wait_for_selector="table tr td")
-    ctx.capture(source.url, page.final_url, "browser", page.status, visible_text(page.html))
-    items = parse_sidbi_tender_rows(page.html, page.final_url)
+    """Extracts genuine procurement RFPs from SIDBI via direct official JSON feed with browser fallback."""
+    import time
+    import httpx
+
+    items: list[ExtractedItem] = []
+
+    # 1. Direct official JSON endpoint (pure HTTP, fastest and most reliable across all environments)
+    try:
+        ts = int(time.time() * 1000)
+        json_url = f"https://www.sidbi.in/head/engine/json/JSONtender_front.php?show=frontend&_={ts}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": "https://www.sidbi.in/",
+        }
+        with httpx.Client(timeout=15.0, headers=headers, follow_redirects=True) as client:
+            client.get("https://www.sidbi.in/en/tenders")
+            res = client.get(json_url)
+            if res.status_code == 200:
+                data = res.json()
+                rows = data.get("data", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                if rows:
+                    items = parse_sidbi_json_rows(rows, base_url="https://www.sidbi.in/en/tenders")
+                    ctx.capture(json_url, json_url, "http_json", 200, f"SIDBI JSON feed returned {len(rows)} rows")
+    except Exception as ex:
+        ctx.step("sidbi_tenders.json_fallback", error=str(ex)[:160])
+
+    # 2. If JSON feed was empty or failed, fallback to browser rendering
+    if not items:
+        page = ctx.browser.render(source.url, wait_for_selector="table tr td")
+        ctx.capture(source.url, page.final_url, "browser", page.status, visible_text(page.html))
+        items = parse_sidbi_tender_rows(page.html, page.final_url)
+
     ctx.step(
         "sidbi_tenders.parsed",
         total_rows=len(items),
