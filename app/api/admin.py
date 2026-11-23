@@ -543,6 +543,100 @@ def inspect_profile_recommendations(
     return out
 
 
+# --------------------------------------------------------------------------- Master Directive Section 13 Operations Controls
+@router.get("/sources/registry", summary="List official sources from CentralSourceRegistry")
+def list_source_registry(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    from app.models import CentralSourceRegistry
+    from app.pipeline.central_source_registry import seed_central_source_registry
+    
+    rows = session.scalars(select(CentralSourceRegistry).order_by(CentralSourceRegistry.name.asc())).all()
+    if not rows:
+        seed_central_source_registry(session)
+        rows = session.scalars(select(CentralSourceRegistry).order_by(CentralSourceRegistry.name.asc())).all()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "domain": r.domain,
+            "source_type": r.source_type,
+            "supported_categories": r.supported_categories,
+            "geographic_coverage": r.geographic_coverage,
+            "supported_methods": r.supported_methods,
+            "auth_requirements": r.auth_requirements,
+            "update_frequency_minutes": r.update_frequency_minutes,
+            "health_status": r.health_status,
+            "last_successful_fetch": r.last_successful_fetch.isoformat() if r.last_successful_fetch else None,
+            "last_successful_verification": r.last_successful_verification.isoformat() if r.last_successful_verification else None,
+            "terms_notes": r.terms_notes,
+            "known_limitations": r.known_limitations,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/sources/{source_id}/refresh", summary="Trigger 11-stage autonomous ingestion for source")
+async def trigger_source_refresh(
+    source_id: str,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.ADMIN))],
+    session: Session = Depends(get_db),
+):
+    from app.pipeline.ingestion_orchestrator import IngestionPipelineOrchestrator
+    orchestrator = IngestionPipelineOrchestrator(concurrency_limit=2)
+    stats = await orchestrator.run_pipeline_for_source(session, source_id)
+    return {
+        "status": "success",
+        "message": f"Ingestion pipeline completed for source '{source_id}'",
+        "stats": stats,
+    }
+
+
+@router.get("/operations/stats", summary="Comprehensive platform operational telemetry")
+def get_operations_stats(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    from app.models import CentralSourceRegistry
+    from collections import Counter
+    
+    all_opps = session.scalars(select(Opportunity)).all()
+    total = len(all_opps)
+    realtime_counts = Counter(o.realtime_status for o in all_opps)
+    lifecycle_counts = Counter(o.lifecycle_status for o in all_opps)
+    bc_counts = Counter(o.bc_relevance for o in all_opps)
+
+    sources = session.scalars(select(CentralSourceRegistry)).all()
+    healthy_sources = sum(1 for s in sources if s.health_status == "healthy")
+    
+    dlq_count = session.scalar(select(func.count(DLQRecord.id)).where(DLQRecord.resolved.is_(False))) or 0
+
+    return {
+        "overview": {
+            "total_opportunities": total,
+            "active_open": realtime_counts.get("open", 0),
+            "closing_soon": realtime_counts.get("closing_soon", 0),
+            "closed_archived": realtime_counts.get("closed", 0) + realtime_counts.get("archived", 0),
+            "published": lifecycle_counts.get("published", 0),
+            "awaiting_verification": lifecycle_counts.get("awaiting_verification", 0) + lifecycle_counts.get("needs_human_review", 0),
+        },
+        "bc_relevance_breakdown": {
+            "exclusive_reserved": bc_counts.get("exclusive_reserved", 0),
+            "preference_relaxation": bc_counts.get("preference_relaxation", 0),
+            "general_open": bc_counts.get("general_open", 0),
+        },
+        "sources": {
+            "total_registered": len(sources),
+            "healthy": healthy_sources,
+            "degraded": len(sources) - healthy_sources,
+        },
+        "dlq_backlog": dlq_count,
+        "runtime_timestamp": utcnow().isoformat(),
+    }
+
+
 @router.post("/matching/feedback", response_model=MatchFeedbackOut, status_code=status.HTTP_201_CREATED, summary="Flag false-positive match or incomplete eligibility")
 def record_match_feedback(
     req: MatchFeedbackIn,
@@ -618,4 +712,98 @@ def list_incomplete_eligibility_opportunities(
             if len(out) >= limit:
                 break
     return out
+
+
+# --------------------------------------------------------------------------- Master Directive Section 13 Operations Controls
+@router.get("/sources/registry", summary="List official sources from CentralSourceRegistry")
+def list_source_registry(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    from app.models import CentralSourceRegistry
+    from app.pipeline.central_source_registry import seed_central_source_registry
+    
+    rows = session.scalars(select(CentralSourceRegistry).order_by(CentralSourceRegistry.name.asc())).all()
+    if not rows:
+        seed_central_source_registry(session)
+        rows = session.scalars(select(CentralSourceRegistry).order_by(CentralSourceRegistry.name.asc())).all()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "domain": r.domain,
+            "source_type": r.source_type,
+            "supported_categories": r.supported_categories,
+            "geographic_coverage": r.geographic_coverage,
+            "supported_methods": r.supported_methods,
+            "auth_requirements": r.auth_requirements,
+            "update_frequency_minutes": r.update_frequency_minutes,
+            "health_status": r.health_status,
+            "last_successful_fetch": r.last_successful_fetch.isoformat() if r.last_successful_fetch else None,
+            "last_successful_verification": r.last_successful_verification.isoformat() if r.last_successful_verification else None,
+            "terms_notes": r.terms_notes,
+            "known_limitations": r.known_limitations,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/sources/{source_id}/refresh", summary="Trigger 11-stage autonomous ingestion for source")
+async def trigger_source_refresh(
+    source_id: str,
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.ADMIN))],
+    session: Session = Depends(get_db),
+):
+    from app.pipeline.ingestion_orchestrator import IngestionPipelineOrchestrator
+    orchestrator = IngestionPipelineOrchestrator(concurrency_limit=2)
+    stats = await orchestrator.run_pipeline_for_source(session, source_id)
+    return {
+        "status": "success",
+        "message": f"Ingestion pipeline completed for source '{source_id}'",
+        "stats": stats,
+    }
+
+
+@router.get("/operations/stats", summary="Comprehensive platform operational telemetry")
+def get_operations_stats(
+    current_admin: Annotated[AdminUser, Depends(require_role(AdminRole.VIEWER))],
+    session: Session = Depends(get_db),
+):
+    from app.models import CentralSourceRegistry
+    from collections import Counter
+    
+    all_opps = session.scalars(select(Opportunity)).all()
+    total = len(all_opps)
+    realtime_counts = Counter(o.realtime_status for o in all_opps)
+    lifecycle_counts = Counter(o.lifecycle_status for o in all_opps)
+    bc_counts = Counter(o.bc_relevance for o in all_opps)
+
+    sources = session.scalars(select(CentralSourceRegistry)).all()
+    healthy_sources = sum(1 for s in sources if s.health_status == "healthy")
+    
+    dlq_count = session.scalar(select(func.count(DLQRecord.id)).where(DLQRecord.resolved.is_(False))) or 0
+
+    return {
+        "overview": {
+            "total_opportunities": total,
+            "active_open": realtime_counts.get("open", 0),
+            "closing_soon": realtime_counts.get("closing_soon", 0),
+            "closed_archived": realtime_counts.get("closed", 0) + realtime_counts.get("archived", 0),
+            "published": lifecycle_counts.get("published", 0),
+            "awaiting_verification": lifecycle_counts.get("awaiting_verification", 0) + lifecycle_counts.get("needs_human_review", 0),
+        },
+        "bc_relevance_breakdown": {
+            "exclusive_reserved": bc_counts.get("exclusive_reserved", 0),
+            "preference_relaxation": bc_counts.get("preference_relaxation", 0),
+            "general_open": bc_counts.get("general_open", 0),
+        },
+        "sources": {
+            "total_registered": len(sources),
+            "healthy": healthy_sources,
+            "degraded": len(sources) - healthy_sources,
+        },
+        "dlq_backlog": dlq_count,
+        "runtime_timestamp": utcnow().isoformat(),
+    }
 

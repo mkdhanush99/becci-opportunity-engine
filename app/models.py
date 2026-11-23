@@ -181,6 +181,20 @@ class Opportunity(Base):
     application_url: Mapped[str | None] = mapped_column(String(2048))
     supporting_documents: Mapped[list] = mapped_column(JSON, default=list)
 
+    # Directive Unified Fields
+    district: Mapped[str | None] = mapped_column(String(128), index=True)
+    beneficiary_type: Mapped[str | None] = mapped_column(String(64))
+    bc_relevance: Mapped[str] = mapped_column(String(64), index=True, default="general_open")
+    opportunity_value: Mapped[float | None] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(16), default="INR")
+    clean_title: Mapped[str | None] = mapped_column(String(500))
+    original_document_reference: Mapped[str | None] = mapped_column(String(255))
+    application_instructions: Mapped[str | None] = mapped_column(Text)
+    amendment_detected_at: Mapped[dt.datetime | None] = mapped_column(TZDateTime())
+    data_quality_score: Mapped[float] = mapped_column(Float, default=1.0)
+    realtime_status: Mapped[str] = mapped_column(String(32), index=True, default="open")
+    days_remaining: Mapped[int | None] = mapped_column(Integer)
+
     # Status
     lifecycle_status: Mapped[str] = mapped_column(String(32), index=True, default="discovered")
     verification_status: Mapped[str] = mapped_column(String(48), default="pending")
@@ -303,6 +317,15 @@ class TenderDetail(Base):
     tender_status: Mapped[str] = mapped_column(String(32), index=True, default="open")
     corrigendum_history: Mapped[list] = mapped_column(JSON, default=list)
     cancellation_reason: Mapped[str | None] = mapped_column(Text)
+    
+    # Directive Section 17 Tender Intelligence Fields
+    work_description: Mapped[str | None] = mapped_column(Text)
+    tender_location: Mapped[str | None] = mapped_column(String(255))
+    bid_submission_start: Mapped[dt.datetime | None] = mapped_column(TZDateTime())
+    technical_bid_opening: Mapped[dt.datetime | None] = mapped_column(TZDateTime())
+    required_certificates: Mapped[list] = mapped_column(JSON, default=list)
+    document_page_evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    plain_language_summary: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
 
     opportunity: Mapped[Opportunity] = relationship(back_populates="tender_detail")
@@ -521,4 +544,26 @@ class AIUsageLog(Base):
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+
+
+class CentralSourceRegistry(Base):
+    """Authoritative Central Source Registry as required by Directive Section 4."""
+    __tablename__ = "central_source_registry"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    domain: Mapped[str] = mapped_column(String(255), index=True)
+    source_type: Mapped[str] = mapped_column(String(64))  # official_government | psu | state_portal | corporate
+    supported_categories: Mapped[list] = mapped_column(JSON, default=list)
+    geographic_coverage: Mapped[list] = mapped_column(JSON, default=list)
+    supported_methods: Mapped[list] = mapped_column(JSON, default=list)
+    auth_requirements: Mapped[str] = mapped_column(String(64), default="none")
+    update_frequency_minutes: Mapped[int] = mapped_column(Integer, default=720)
+    last_successful_fetch: Mapped[dt.datetime | None] = mapped_column(TZDateTime())
+    last_successful_verification: Mapped[dt.datetime | None] = mapped_column(TZDateTime())
+    health_status: Mapped[str] = mapped_column(String(32), index=True, default="healthy")
+    terms_notes: Mapped[str] = mapped_column(Text, default="")
+    known_limitations: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(TZDateTime(), default=utcnow, onupdate=utcnow)
 

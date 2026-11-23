@@ -287,6 +287,64 @@ MIGRATIONS: list[dict] = [
             "DROP TABLE IF EXISTS ai_extraction_cache",
         ],
     },
+    {
+        "version": "007_unified_schema_and_source_registry",
+        "description": "Add 30-category unified fields, district, bc_relevance, deadline intelligence, and central source registry",
+        "up_sql": [
+            "ALTER TABLE opportunities ADD COLUMN district VARCHAR(128)",
+            "ALTER TABLE opportunities ADD COLUMN beneficiary_type VARCHAR(64)",
+            "ALTER TABLE opportunities ADD COLUMN bc_relevance VARCHAR(64) DEFAULT 'general_open'",
+            "ALTER TABLE opportunities ADD COLUMN opportunity_value FLOAT",
+            "ALTER TABLE opportunities ADD COLUMN currency VARCHAR(16) DEFAULT 'INR'",
+            "ALTER TABLE opportunities ADD COLUMN clean_title VARCHAR(500)",
+            "ALTER TABLE opportunities ADD COLUMN original_document_reference VARCHAR(255)",
+            "ALTER TABLE opportunities ADD COLUMN application_instructions TEXT",
+            "ALTER TABLE opportunities ADD COLUMN amendment_detected_at DATETIME",
+            "ALTER TABLE opportunities ADD COLUMN data_quality_score FLOAT DEFAULT 1.0",
+            "ALTER TABLE opportunities ADD COLUMN realtime_status VARCHAR(32) DEFAULT 'open'",
+            "ALTER TABLE opportunities ADD COLUMN days_remaining INTEGER",
+            "CREATE INDEX IF NOT EXISTS ix_opp_realtime_status ON opportunities (realtime_status)",
+            "CREATE INDEX IF NOT EXISTS ix_opp_bc_relevance ON opportunities (bc_relevance)",
+            "CREATE INDEX IF NOT EXISTS ix_opp_district ON opportunities (district)",
+            "ALTER TABLE tender_details ADD COLUMN work_description TEXT",
+            "ALTER TABLE tender_details ADD COLUMN tender_location VARCHAR(255)",
+            "ALTER TABLE tender_details ADD COLUMN bid_submission_start DATETIME",
+            "ALTER TABLE tender_details ADD COLUMN technical_bid_opening DATETIME",
+            "ALTER TABLE tender_details ADD COLUMN required_certificates JSON DEFAULT '[]'",
+            "ALTER TABLE tender_details ADD COLUMN document_page_evidence JSON DEFAULT '{}'",
+            "ALTER TABLE tender_details ADD COLUMN plain_language_summary TEXT",
+            """
+            CREATE TABLE IF NOT EXISTS central_source_registry (
+                id VARCHAR(64) NOT NULL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                domain VARCHAR(255) NOT NULL,
+                source_type VARCHAR(64) NOT NULL,
+                supported_categories JSON NOT NULL DEFAULT '[]',
+                geographic_coverage JSON NOT NULL DEFAULT '[]',
+                supported_methods JSON NOT NULL DEFAULT '[]',
+                auth_requirements VARCHAR(64) NOT NULL DEFAULT 'none',
+                update_frequency_minutes INTEGER NOT NULL DEFAULT 720,
+                last_successful_fetch DATETIME,
+                last_successful_verification DATETIME,
+                health_status VARCHAR(32) NOT NULL DEFAULT 'healthy',
+                terms_notes TEXT NOT NULL DEFAULT '',
+                known_limitations TEXT NOT NULL DEFAULT '',
+                created_at DATETIME NOT NULL,
+                updated_at DATETIME NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS ix_source_reg_domain ON central_source_registry (domain)",
+            "CREATE INDEX IF NOT EXISTS ix_source_reg_health ON central_source_registry (health_status)",
+        ],
+        "down_sql": [
+            "DROP INDEX IF EXISTS ix_source_reg_health",
+            "DROP INDEX IF EXISTS ix_source_reg_domain",
+            "DROP TABLE IF EXISTS central_source_registry",
+            "DROP INDEX IF EXISTS ix_opp_district",
+            "DROP INDEX IF EXISTS ix_opp_bc_relevance",
+            "DROP INDEX IF EXISTS ix_opp_realtime_status",
+        ],
+    },
 ]
 
 
@@ -330,7 +388,12 @@ def run_migrations(engine: Engine | None = None) -> list[str]:
             if v in applied:
                 continue
             for stmt in mig["up_sql"]:
-                conn.execute(text(stmt))
+                try:
+                    conn.execute(text(stmt))
+                except Exception as ex:
+                    if "duplicate column name" in str(ex).lower():
+                        continue
+                    raise ex
             conn.execute(
                 text("INSERT INTO schema_migrations (version, description, applied_at) VALUES (:v, :d, :a)"),
                 {"v": v, "d": mig["description"], "a": now_iso},

@@ -11,6 +11,59 @@ class Category(StrEnum):
     BUSINESS_GROWTH = "business_growth"
 
 
+class OpportunityCategory30(StrEnum):
+    """The 30 Core Categories specified in the Master Autonomous Build Directive."""
+    CENTRAL_GOVT_SCHEME = "central_govt_scheme"
+    STATE_GOVT_SCHEME = "state_govt_scheme"
+    GOVT_TENDER = "govt_tender"
+    GEM_PROCUREMENT = "gem_procurement"
+    CPPP_EPROCURE = "cppp_eprocure"
+    STATE_PROCUREMENT = "state_procurement"
+    PSU_PROCUREMENT = "psu_procurement"
+    PRIVATE_TENDER = "private_tender"
+    CORPORATE_SUPPLIER = "corporate_supplier"
+    BUYER_REQUIREMENT = "buyer_requirement"
+    MSME_OPPORTUNITY = "msme_opportunity"
+    BUSINESS_GRANT = "business_grant"
+    BUSINESS_SUBSIDY = "business_subsidy"
+    ENTERPRISE_LOAN = "enterprise_loan"
+    WORKING_CAPITAL_FINANCE = "working_capital_finance"
+    CREDIT_GUARANTEE = "credit_guarantee"
+    STARTUP_FUNDING = "startup_funding"
+    FRANCHISE_OPPORTUNITY = "franchise_opportunity"
+    BUSINESS_ACQUISITION = "business_acquisition"
+    GOVT_JOB = "govt_job"
+    PRIVATE_JOB = "private_job"
+    INTERNSHIP = "internship"
+    APPRENTICESHIP = "apprenticeship"
+    SKILL_DEVELOPMENT = "skill_development"
+    SCHOOL_SCHOLARSHIP = "school_scholarship"
+    COLLEGE_SCHOLARSHIP = "college_scholarship"
+    POSTGRADUATE_SCHOLARSHIP = "postgraduate_scholarship"
+    FELLOWSHIP_RESEARCH = "fellowship_research"
+    EDUCATION_ADMISSION = "education_admission"
+    INCUBATOR_COMPETITION = "incubator_competition"
+
+
+class BCRelevanceType(StrEnum):
+    """Accurately distinguishes OBC/BC reservation and relaxations."""
+    EXCLUSIVE_RESERVED = "exclusive_reserved"  # Exclusively reserved for OBC/BC applicants
+    PREFERENCE_RELAXATION = "preference_relaxation"  # Documented OBC/BC preferences or relaxations
+    GENERAL_OPEN = "general_open"  # General opportunity open to all eligible applicants
+
+
+class RealtimeStatus(StrEnum):
+    """Real-time opportunity deadline and lifecycle status."""
+    OPEN = "open"
+    CLOSING_SOON = "closing_soon"
+    CLOSED = "closed"
+    AMENDED = "amended"
+    SUSPENDED = "suspended"
+    CANCELLED = "cancelled"
+    VERIFICATION_REQUIRED = "verification_required"
+    ARCHIVED = "archived"
+
+
 class SourceReliability(StrEnum):
     OFFICIAL_GOVERNMENT = "official_government"
     OFFICIAL_EMPLOYER = "official_employer"
