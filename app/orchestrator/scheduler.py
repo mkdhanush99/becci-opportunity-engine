@@ -79,36 +79,33 @@ class AutonomousScheduler:
             ("schemes", self.settings.cadence_schemes_hours, "funding"),
         ]
 
+        def _execute_category_scan(cat: str, filt: str):
+            with session_scope() as session:
+                orch = Orchestrator(session)
+                lock = f"auto_scheduler_{cat}"
+                try:
+                    owner = orch.acquire_lock(lock)
+                except Exception:
+                    return
+                try:
+                    logger.info("Executing autonomous scan for category: %s", cat)
+                    if cat == "schemes":
+                        from app.seeds.schemes import seed_verified_schemes
+                        seed_verified_schemes(session)
+                    else:
+                        orch.run_due_scans(category=filt, force=False)
+                    _LAST_RUNS[cat] = utcnow()
+                    logger.info("Autonomous scan finished for category: %s", cat)
+                finally:
+                    orch.release_lock(lock, owner)
+
         for cat_key, interval_hours, filter_cat in categories_to_check:
             last = _LAST_RUNS.get(cat_key)
             if last and (now - last) < dt.timedelta(hours=interval_hours):
                 continue
 
-            lock_name = f"auto_scheduler_{cat_key}"
             try:
-                with session_scope() as session:
-                    orch = Orchestrator(session)
-                    try:
-                        owner = orch.acquire_lock(lock_name)
-                    except Exception:
-                        # Another worker currently owns this category lock
-                        continue
-
-                    try:
-                        logger.info("Executing autonomous scan for category: %s", cat_key)
-                        if cat_key == "schemes":
-                            # Refresh verified schemes
-                            from app.seeds.schemes import seed_verified_schemes
-                            seed_verified_schemes(session)
-                        else:
-                            # Run due source scouts
-                            orch.run_due_scans(category=filter_cat, force=False)
-
-                        _LAST_RUNS[cat_key] = utcnow()
-                        logger.info("Autonomous scan finished for category: %s", cat_key)
-                    finally:
-                        orch.release_lock(lock_name, owner)
-
+                await asyncio.to_thread(_execute_category_scan, cat_key, filter_cat)
             except Exception as exc:
                 logger.error("Error running autonomous category %s: %s", cat_key, exc, exc_info=True)
 
